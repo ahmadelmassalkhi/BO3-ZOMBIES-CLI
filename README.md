@@ -1,47 +1,25 @@
 # Black Ops 3 Zombies CLI
 
-Black Ops 3 Zombies CLI is a Windows companion app for the BO3 Zombies Steam Workshop mod.
+Black Ops 3 Zombies CLI is a Windows companion app for the BO3 Zombies Steam Workshop mod. It opens a dedicated command line that can send live commands to your active Zombies match, such as spawning zombies, changing points, giving weapons, triggering powerups, and printing messages in game.
 
-It opens a dedicated command line that can send live commands to your active Zombies match, such as spawning zombies, changing points, giving weapons, triggering powerups, and printing messages in game.
+## Setup
 
-## Requirements
-
-- Call of Duty: Black Ops III on Steam
-- Windows
-- The Steam Workshop mod subscribed and loaded in game:
-  https://steamcommunity.com/sharedfiles/filedetails/?id=3724885173
-- A Solo or Zombies Private Game session
-
-## Supported Game Setup
-
-Use this app in Solo or Zombies Private Game.
-
-If friends are joining, the host should load the Workshop mod and run the CLI. Everyone should subscribe to the Workshop item before joining. Public matchmaking and random public lobbies are not the target setup for this tool.
-
-The CLI controls the local BO3 process that is running the mod. For the cleanest and most reliable behavior, run it as the match host.
-
-## Install
-
-Download and run the latest installer from the GitHub Releases page:
-
-https://github.com/ahmadelmassalkhi/BO3-ZOMBIES-CLI/releases/
-
-Run the installer, then launch:
-
-```text
-BlackOps3ZombiesCli.exe
-```
+1. Install [Call of Duty: Black Ops III](https://store.steampowered.com/app/311210/Call_of_Duty_Black_Ops_III/) on Steam.
+2. Subscribe to the [BO3 Zombies CLI Workshop mod](https://steamcommunity.com/sharedfiles/filedetails/?id=3724885173).
+3. Download and run the latest installer from [GitHub Releases](https://github.com/ahmadelmassalkhi/BO3-ZOMBIES-CLI/releases/).
+4. Launch Black Ops III.
+5. Load the Workshop mod from the in-game Mods menu.
+6. Start a Zombies Solo or Private Game.
+7. Open `BlackOps3ZombiesCli.exe`.
+8. Type `help` to see available commands.
 
 Windows SmartScreen may warn on first launch because early builds are not signed with a public publisher certificate yet.
 
-## Quick Start
+## Supported Game Setup
 
-1. Subscribe to the Steam Workshop item.
-2. Launch Black Ops III.
-3. Load the Workshop mod from the in-game Mods menu.
-4. Start a Zombies Solo or Private Game.
-5. Open `BlackOps3ZombiesCli.exe`.
-6. Type `help` to see available commands.
+Use this app in Solo or Zombies Private Game. Public matchmaking and random public lobbies are not the target setup for this tool.
+
+If friends are joining, everyone should subscribe to the Workshop item before joining. The host should load the mod, start the private game, and run the CLI, because the CLI controls the local BO3 process that is running the mod.
 
 ## Commands
 
