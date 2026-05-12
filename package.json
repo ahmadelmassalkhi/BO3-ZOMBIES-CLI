@@ -1,0 +1,27 @@
+{
+  "name": "bo3-zm-cli",
+  "version": "0.1.0",
+  "description": "Standalone BO3 Zombies command-line bridge.",
+  "main": "index.js",
+  "bin": {
+    "bo3-zm-cli": "bin/bo3-zm-cli.js"
+  },
+  "scripts": {
+    "start": "node bin/bo3-zm-cli.js",
+    "check": "node scripts/check.js"
+  },
+  "keywords": [
+    "bo3",
+    "zombies",
+    "cli"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "files": [
+    "bin",
+    "src",
+    "index.js"
+  ]
+}
+
