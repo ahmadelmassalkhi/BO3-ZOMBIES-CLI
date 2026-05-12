@@ -1,6 +1,6 @@
 # Black Ops 3 Zombies CLI
 
-Black Ops 3 Zombies CLI is a Windows companion app for the BO3 Zombies Steam Workshop mod. It opens a dedicated command line that can send live commands to your active Zombies match, such as spawning zombies, changing points, giving weapons, triggering powerups, and printing messages in game.
+Opens a dedicated command line that can send live commands to your active Zombies match, such as spawning zombies, changing points, giving weapons, triggering powerups, and printing messages in game.
 
 ## Setup
 
