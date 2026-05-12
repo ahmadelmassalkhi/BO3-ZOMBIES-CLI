@@ -59,10 +59,12 @@ class RealCli {
                 output: process.stdout,
                 prompt: renderer.output === 'json' ? '' : `${Ansi.cyan('bo3')} ${Ansi.gray('>')} `,
             });
+            const removeKeyBinding = this.#bindCtrlBackspace(shell);
 
             const close = async (exitCode = 0) => {
                 if (this.shuttingDown) return;
                 this.shuttingDown = true;
+                removeKeyBinding();
                 shell.close();
                 await this.#stop();
                 resolve(exitCode);
@@ -113,6 +115,29 @@ class RealCli {
 
     #prompt(shell, renderer) {
         if (renderer.output !== 'json') shell.prompt();
+    }
+
+    #bindCtrlBackspace(shell) {
+        const write = shell._ttyWrite;
+        if (typeof write !== 'function' || typeof shell._deleteWordLeft !== 'function') return () => {};
+
+        shell._ttyWrite = function wrappedTtyWrite(sequence, key = {}) {
+            if (RealCli.#ctrlBackspace(sequence, key)) {
+                this._deleteWordLeft();
+                return;
+            }
+
+            write.call(this, sequence, key);
+        };
+
+        return () => { shell._ttyWrite = write; };
+    }
+
+    static #ctrlBackspace(sequence, key) {
+        return key
+            && key.ctrl
+            && key.name === 'backspace'
+            && (sequence === '\x7f' || sequence === '\b' || sequence === '\x1b[127;5u');
     }
 
     #routeLogsToStderr() {
