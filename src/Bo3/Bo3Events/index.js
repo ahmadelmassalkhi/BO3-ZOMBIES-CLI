@@ -1,6 +1,5 @@
 module.exports = Object.freeze({
     Bo3Event: require('./Bo3Event'),
-    Bo3EventLoadout: require('./Bo3EventLoadout'),
     Bo3EventPackAPunch: require('./Bo3EventPackAPunch'),
     Bo3EventPerk: require('./Bo3EventPerk'),
     Bo3EventPoints: require('./Bo3EventPoints'),
@@ -10,4 +9,3 @@ module.exports = Object.freeze({
     Bo3EventWeapon: require('./Bo3EventWeapon'),
     Bo3EventZombie: require('./Bo3EventZombie'),
 });
-

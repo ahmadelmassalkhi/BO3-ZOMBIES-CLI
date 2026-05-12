@@ -1,4 +1,3 @@
-const GameCliCommandLoadout = require('./GameCliCommandLoadout');
 const GameCliCommandPackAPunch = require('./GameCliCommandPackAPunch');
 const GameCliCommandPerk = require('./GameCliCommandPerk');
 const GameCliCommandPoints = require('./GameCliCommandPoints');
@@ -17,6 +16,4 @@ module.exports = () => Object.freeze([
     new GameCliCommandWeapon(),
     new GameCliCommandPowerup(),
     new GameCliCommandPackAPunch(),
-    new GameCliCommandLoadout(),
 ]);
-
