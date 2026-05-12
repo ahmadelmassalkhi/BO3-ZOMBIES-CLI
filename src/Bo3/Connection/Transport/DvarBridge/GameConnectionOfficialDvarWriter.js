@@ -1,7 +1,8 @@
 const path = require('path');
 const GameConnectionOfficialDvarBridgeClient = require('./GameConnectionOfficialDvarBridgeClient');
 
-const DEFAULT_PATCH_DIR = path.join(__dirname, '..', 'BridgeRuntime');
+const DEV_PATCH_DIR = path.join(__dirname, '..', 'BridgeRuntime');
+const RELEASE_PATCH_DIR = path.join(path.dirname(process.execPath), 'BridgeRuntime');
 const DEFAULT_POWERSHELL = path.join(
     process.env.SystemRoot || 'C:\\Windows',
     'System32',
@@ -25,7 +26,7 @@ class GameConnectionOfficialDvarWriter {
      * @param {boolean} [options.log] Whether to log connection mode.
      */
     constructor(options = {}) {
-        this.patchDir = String(options.patchDir || process.env.BO3_T7PATCH_DIR || DEFAULT_PATCH_DIR);
+        this.patchDir = String(options.patchDir || process.env.BO3_T7PATCH_DIR || GameConnectionOfficialDvarWriter.#defaultPatchDir());
         this.timeoutMs = this.#int(options.timeoutMs ?? process.env.BO3_OFFICIAL_DVAR_TIMEOUT_MS, 5000);
         this.powershellPath = options.powershellPath || process.env.BO3_POWERSHELL_PATH || DEFAULT_POWERSHELL;
         this.bridge = options.bridge || new GameConnectionOfficialDvarBridgeClient({
@@ -36,6 +37,10 @@ class GameConnectionOfficialDvarWriter {
         this.queue = Promise.resolve();
         this.generation = 0;
         if (options.log !== false) console.log(`[BO3] Connection mode: official-dvar (${this.patchDir})`);
+    }
+
+    static #defaultPatchDir() {
+        return process.pkg ? RELEASE_PATCH_DIR : DEV_PATCH_DIR;
     }
 
     /**

@@ -69,10 +69,7 @@ class GameCli {
         const records = GameCli.#records(compiled.commands);
         const label = compiled.commands.map((command) => command.name).join(', ');
         const result = records.length ? await this.bo3.sendRecords(records, label) : undefined;
-        return GameCliResponse.success(`sent ${records.length} BO3 record(s).`, {
-            records,
-            data: result,
-        });
+        return GameCliResponse.sent(records.length, records, result);
     }
 
     /**
@@ -84,7 +81,7 @@ class GameCli {
         if (compiled.help) return compiled.help;
 
         const records = GameCli.#records(compiled.commands);
-        return GameCliResponse.success(`previewed ${records.length} BO3 record(s).`, { records });
+        return GameCliResponse.preview(records.length, records);
     }
 
     #compiledCommands(texts) {
@@ -120,7 +117,7 @@ class GameCli {
             ? GameCliHelp.command(this.registry.get(commandName))
             : GameCliHelp.general(this.registry);
 
-        return GameCliResponse.success(text);
+        return GameCliResponse.help(text);
     }
 }
 
