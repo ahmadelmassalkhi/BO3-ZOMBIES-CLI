@@ -34,6 +34,13 @@ class GameCli {
     }
 
     /**
+     * @returns {Promise<void>} BO3 startup warmup/log completion.
+     */
+    ready() {
+        return this.bo3.ready();
+    }
+
+    /**
      * Stops the BO3 runtime behind this CLI.
      *
      * @returns {Promise<void>} Stop result.

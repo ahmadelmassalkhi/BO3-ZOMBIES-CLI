@@ -12,11 +12,15 @@ class Bo3 {
     #connection;
     #started;
     #stopping;
+    #stopVersion;
+    #ready;
 
     constructor() {
         this.#connection = null;
         this.#started = false;
         this.#stopping = false;
+        this.#stopVersion = 0;
+        this.#ready = Promise.resolve();
     }
 
     /**
@@ -34,7 +38,7 @@ class Bo3 {
             throw error;
         }
 
-        this.#gameConnection().warmup()
+        this.#ready = this.#gameConnection().warmup()
             .then(() => console.log('[BO3] Official DVAR bridge warmed.'))
             .catch((error) => console.warn('[BO3] Official DVAR bridge warmup deferred:', error));
 
@@ -42,11 +46,20 @@ class Bo3 {
     }
 
     /**
+     * @returns {Promise<void>} Startup warmup/log completion.
+     */
+    ready() {
+        return this.#ready;
+    }
+
+    /**
      * @returns {Promise<void>} Stop result.
      */
     stop() {
         this.#stopping = true;
+        this.#stopVersion += 1;
         this.#started = false;
+        this.#ready = Promise.resolve();
         return this.#connection ? this.#connection.stop() : Promise.resolve();
     }
 
@@ -56,11 +69,15 @@ class Bo3 {
      * @returns {Promise<object|undefined>} Connection send result.
      */
     sendRecords(records, label = 'cli command') {
+        const stopVersion = this.#stopVersion;
         this.start();
         return Promise.resolve()
             .then(() => this.#gameConnection().schedulePayload(records))
             .catch((error) => {
-                if (this.#stopping && error && error.message === STOPPED_BEFORE_ACK) return undefined;
+                if (this.#stopping || this.#stopVersion !== stopVersion) {
+                    if (error && error.message === STOPPED_BEFORE_ACK) return undefined;
+                }
+
                 console.error(`[BO3] Failed to send ${label}:`, error);
                 throw error;
             });

@@ -6,14 +6,14 @@
  */
 class GameCliResponse {
     /**
-     * @param {'sent'|'preview'|'help'|'error'} status Response status.
+     * @param {'sent'|'preview'|'help'|'canceled'|'error'} status Response status.
      * @param {string} text Plain response text.
      * @param {string[][]} records BO3 records sent for this command.
      * @param {*} data Optional machine-readable result.
      * @param {object|null} error Optional machine-readable error.
      */
     constructor(status, text, records = [], data = null, error = null) {
-        if (!['sent', 'preview', 'help', 'error'].includes(status)) throw new TypeError('GameCliResponse.status is invalid.');
+        if (!['sent', 'preview', 'help', 'canceled', 'error'].includes(status)) throw new TypeError('GameCliResponse.status is invalid.');
         if (typeof text !== 'string') throw new TypeError('GameCliResponse.text must be a string.');
         if (!Array.isArray(records)) throw new TypeError('GameCliResponse.records must be an array.');
 
@@ -61,6 +61,14 @@ class GameCliResponse {
      */
     static help(text) {
         return new GameCliResponse('help', text);
+    }
+
+    /**
+     * @param {string} [text='canceled current command.'] Cancellation text.
+     * @returns {GameCliResponse} Canceled response.
+     */
+    static canceled(text = 'canceled current command.') {
+        return new GameCliResponse('canceled', text);
     }
 
     /**
