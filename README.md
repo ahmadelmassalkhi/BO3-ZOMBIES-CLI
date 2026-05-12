@@ -22,11 +22,9 @@ The CLI controls the local BO3 process that is running the mod. For the cleanest
 
 ## Install
 
-Download the latest installer from the GitHub Releases page:
+Download and run the latest installer from the GitHub Releases page:
 
-```text
-BlackOps3ZombiesCli_Setup.exe
-```
+https://github.com/ahmadelmassalkhi/BO3-ZOMBIES-CLI/releases/
 
 Run the installer, then launch:
 
