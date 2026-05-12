@@ -51,24 +51,54 @@ class GameCli {
     }
 
     /**
+     * @param {string} text One CLI command.
+     * @returns {GameCliResponse} Preview response without sending records.
+     */
+    preview(text) {
+        return this.previewAll([text]);
+    }
+
+    /**
      * @param {string[]} texts CLI commands to validate, translate, then send together.
      * @returns {Promise<GameCliResponse>} Command response.
      */
     async executeAll(texts) {
-        if (!Array.isArray(texts) || !texts.length) throw new TypeError('GameCli.executeAll expected a non-empty string array.');
-        if (!texts.every((text) => typeof text === 'string')) throw new TypeError('GameCli.executeAll expected a string array.');
+        const compiled = this.#compiledCommands(texts);
+        if (compiled.help) return compiled.help;
 
-        const compiled = texts.map((text) => this.#compile(text));
-        if (compiled.length === 1 && compiled[0].help) return compiled[0].help;
-        if (compiled.some((command) => command.help)) throw new TypeError('GameCli.executeAll cannot batch help with gameplay commands.');
-
-        const records = compiled.flatMap((command) => command.events.flatMap((event) => event.toRecords()));
-        const label = compiled.map((command) => command.name).join(', ');
+        const records = GameCli.#records(compiled.commands);
+        const label = compiled.commands.map((command) => command.name).join(', ');
         const result = records.length ? await this.bo3.sendRecords(records, label) : undefined;
         return GameCliResponse.success(`sent ${records.length} BO3 record(s).`, {
             records,
             data: result,
         });
+    }
+
+    /**
+     * @param {string[]} texts CLI commands to validate and translate without sending.
+     * @returns {GameCliResponse} Preview response.
+     */
+    previewAll(texts) {
+        const compiled = this.#compiledCommands(texts);
+        if (compiled.help) return compiled.help;
+
+        const records = GameCli.#records(compiled.commands);
+        return GameCliResponse.success(`previewed ${records.length} BO3 record(s).`, { records });
+    }
+
+    #compiledCommands(texts) {
+        if (!Array.isArray(texts) || !texts.length) throw new TypeError('GameCli expected a non-empty string array.');
+        if (!texts.every((text) => typeof text === 'string')) throw new TypeError('GameCli expected a string array.');
+
+        const commands = texts.map((text) => this.#compile(text));
+        if (commands.length === 1 && commands[0].help) return { help: commands[0].help };
+        if (commands.some((command) => command.help)) throw new TypeError('GameCli cannot batch help with gameplay commands.');
+        return { commands };
+    }
+
+    static #records(compiledCommands) {
+        return compiledCommands.flatMap((command) => command.events.flatMap((event) => event.toRecords()));
     }
 
     #compile(text) {

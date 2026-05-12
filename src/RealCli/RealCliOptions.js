@@ -6,6 +6,7 @@ class RealCliOptions {
         if (!Array.isArray(argv)) throw new TypeError('RealCli.argv must be an array.');
 
         this.output = 'ansi';
+        this.dryRun = false;
         this.command = [];
 
         let parsingFlags = true;
@@ -30,6 +31,11 @@ class RealCliOptions {
                 continue;
             }
 
+            if (parsingFlags && (arg === '--dry-run' || arg === '--preview')) {
+                this.dryRun = true;
+                continue;
+            }
+
             this.command.push(arg);
         }
 
@@ -51,4 +57,3 @@ class RealCliOptions {
 }
 
 module.exports = RealCliOptions;
-

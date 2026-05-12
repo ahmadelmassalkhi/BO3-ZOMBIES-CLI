@@ -7,6 +7,7 @@ class GameCliHelp {
             '  bo3-zm-cli <command> [args]',
             '  bo3-zm-cli --json <command> [args]',
             '  bo3-zm-cli --plain <command> [args]',
+            '  bo3-zm-cli --dry-run --json <command> [args]',
             '',
             '[BO3 ZM CLI] Commands:',
             ...registry.commands.map((command) => `  ${command.name.padEnd(8)} ${command.description}`),
@@ -18,6 +19,7 @@ class GameCliHelp {
             `[BO3 ZM CLI] ${command.name} usage:`,
             `  bo3-zm-cli ${command.usage}`,
             `  bo3-zm-cli --json ${command.usage}`,
+            `  bo3-zm-cli --dry-run --json ${command.usage}`,
         ].join('\n');
     }
 }

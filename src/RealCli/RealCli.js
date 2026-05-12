@@ -29,12 +29,12 @@ class RealCli {
         const options = new RealCliOptions(argv);
         const renderer = new RealCliRenderer(options.output);
         if (options.machineReadable) this.#routeLogsToStderr();
-        return options.hasCommand ? this.#runOne(options.text, renderer) : this.#runShell(renderer);
+        return options.hasCommand ? this.#runOne(options.text, renderer, options) : this.#runShell(renderer, options);
     }
 
-    async #runOne(text, renderer) {
+    async #runOne(text, renderer, options) {
         try {
-            this.#write(renderer, await this.gameCli.execute(text));
+            this.#write(renderer, await this.#execute(text, options));
             await this.#stop();
             return 0;
         } catch (error) {
@@ -44,10 +44,10 @@ class RealCli {
         }
     }
 
-    #runShell(renderer) {
+    #runShell(renderer, options) {
         return new Promise((resolve) => {
             try {
-                this.gameCli.start();
+                if (!options.dryRun) this.gameCli.start();
             } catch (error) {
                 this.#write(renderer, GameCliResponse.failure(error));
                 resolve(1);
@@ -74,7 +74,7 @@ class RealCli {
                 if (text === 'exit' || text === 'quit') return close(0);
 
                 try {
-                    this.#write(renderer, await this.gameCli.execute(text));
+                    this.#write(renderer, await this.#execute(text, options));
                 } catch (error) {
                     this.#write(renderer, GameCliResponse.failure(error));
                 }
@@ -87,9 +87,16 @@ class RealCli {
                 if (!this.shuttingDown) close(0);
             });
 
-            if (renderer.output !== 'json') console.log(Ansi.yellow('[BO3 ZM CLI]'), 'Type help, or exit to quit.');
+            if (renderer.output !== 'json') {
+                const mode = options.dryRun ? 'dry-run mode; no BO3 connection will start.' : 'Type help, or exit to quit.';
+                console.log(Ansi.yellow('[BO3 ZM CLI]'), mode);
+            }
             this.#prompt(shell, renderer);
         });
+    }
+
+    #execute(text, options) {
+        return options.dryRun ? this.gameCli.preview(text) : this.gameCli.execute(text);
     }
 
     async #stop() {

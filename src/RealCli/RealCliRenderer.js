@@ -32,7 +32,7 @@ class RealCliRenderer {
             if (line.trim().startsWith('bo3-zm-cli')) {
                 return line
                     .replace('bo3-zm-cli', Ansi.cyan('bo3-zm-cli'))
-                    .replace(/--json|--plain|--ansi/g, (match) => Ansi.yellow(match))
+                    .replace(/--json|--plain|--ansi|--dry-run/g, (match) => Ansi.yellow(match))
                     .replace(/<command>/g, Ansi.blue('<command>'))
                     .replace(/\[args\]/g, Ansi.gray('[args]'))
                     .replace(/\bhelp\b/g, Ansi.green('help'));
