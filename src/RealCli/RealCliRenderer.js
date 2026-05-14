@@ -83,7 +83,7 @@ class RealCliRenderer {
 
     static #queryItems(line) {
         const items = line.slice(2, -2).split(', ');
-        return RealCliRenderer.#items(items);
+        return RealCliRenderer.#items(items.map((item) => Ansi.green(item)));
     }
 
     static #inlineItems(line, activeRequests = []) {
