@@ -24,24 +24,24 @@ class RealCliRenderer {
 
     #ansi(text, data = null) {
         return String(text).split('\n').map((line) => {
-            if (line.startsWith('[CLI]') || line.startsWith('[GET]')) return RealCliRenderer.#title(line);
+            if (line.startsWith('[CLI]') || line.startsWith('[GET]') || line.startsWith('[CACHE]')) return RealCliRenderer.#title(line);
             if (line.startsWith('[NOTICE]')) return RealCliRenderer.#notice(line, data);
             if (line.startsWith('[REPORT]')) return RealCliRenderer.#report(line);
 
             if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
             if (line === '{' || line === '}') return Ansi.gray(line);
-            if (RealCliRenderer.#isCacheItem(line, data)) return RealCliRenderer.#cacheItem(line, data);
+            if (RealCliRenderer.#isCacheItem(line)) return RealCliRenderer.#cacheItem(line);
             if (line.match(/^  - /)) return RealCliRenderer.#note(line);
 
             const helpCommand = line.match(/^  ([a-z]+)(?: ([a-z]+))?$/);
             if (helpCommand) {
-                const command = Ansi.blue(helpCommand[1]);
-                const subcommand = helpCommand[2] ? ` ${Ansi.green(helpCommand[2])}` : '';
+                const command = Ansi.cyan(helpCommand[1]);
+                const subcommand = helpCommand[2] ? ` ${helpCommand[2]}` : '';
                 return `  ${command}${subcommand}`;
             }
 
             const commandLine = line.match(/^  ([a-z]+)\s{2,}(.*)$/);
-            if (commandLine) return `  ${Ansi.blue(commandLine[1].padEnd(8))} ${commandLine[2]}`;
+            if (commandLine) return `  ${Ansi.cyan(commandLine[1].padEnd(8))} ${commandLine[2]}`;
 
             if (line.trim().startsWith('bo3-zm-cli')) {
                 return RealCliRenderer.#commandUsage(line);
@@ -53,13 +53,13 @@ class RealCliRenderer {
 
     static #title(line) {
         return line
-            .replace(/\[(CLI|GET)\]/, (tag) => Ansi.yellow(tag))
-            .replace(/ on map ([^:]+):$/, (_, map) => ` on map ${Ansi.red(map)}:`);
+            .replace(/\[(CLI|GET|CACHE)\]/, (tag) => Ansi.gray(tag))
+            .replace(/ on map ([^:]+):$/, (_, map) => ` on map ${Ansi.cyan(map)}:`);
     }
 
     static #report(line) {
         return line.replace(/\[[^\]]+\]/g, (tag) => {
-            if (tag === '[REPORT]') return Ansi.yellow(tag);
+            if (tag === '[REPORT]') return Ansi.gray(tag);
             if (tag === '[ERROR]') return Ansi.red(tag);
             if (tag === '[WARN]') return Ansi.yellow(tag);
             return Ansi.green(tag);
@@ -69,17 +69,13 @@ class RealCliRenderer {
     static #notice(line, data = null) {
         const cacheShow = '\u0000CACHE_SHOW\u0000';
         const colored = line
-            .replace('[NOTICE]', Ansi.yellow('[NOTICE]'))
+            .replace('[NOTICE]', Ansi.gray('[NOTICE]'))
             .replace(/\bcache show\b/gi, cacheShow)
-            .replace(/\bpaused\b/gi, (match) => Ansi.red(match))
-            .replace(/\bwaiting for live gameplay\b/gi, (match) => Ansi.yellow(match))
             .replace(/\bno live match\b/gi, (match) => Ansi.yellow(match))
             .replace(/\bbusy\b/gi, (match) => Ansi.yellow(match))
-            .replace(/\bwaiting for BO3 ACK\b/gi, (match) => Ansi.yellow(match))
-            .replace(/\bwaiting for current command\b/gi, (match) => Ansi.yellow(match))
-            .replace(/\bcache\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bpaused\b/gi, (match) => Ansi.yellow(match))
             .replace(cacheShow, RealCliRenderer.#inlineCommand('cache show'))
-            .replace(/ on map ([^;.]+)/, (_, map) => ` on map ${Ansi.red(map)}`);
+            .replace(/ on map ([^;.]+)/, (_, map) => ` on map ${Ansi.cyan(map)}`);
 
         return RealCliRenderer.#inlineItems(colored, RealCliRenderer.#activeRequests(data));
     }
@@ -96,24 +92,19 @@ class RealCliRenderer {
     static #items(items, activeRequests = []) {
         return [
             Ansi.gray('{ '),
-            items.map((item) => activeRequests.includes(item) ? Ansi.red(item) : Ansi.green(item)).join(Ansi.gray(', ')),
+            items.join(Ansi.gray(', ')),
             Ansi.gray(' }'),
         ].join('');
     }
 
-    static #isCacheItem(line, data) {
-        const requests = data
-            ? (data.activeRequests || []).concat(data.requests || [])
-            : [];
-        const text = line.trim().replace(/,$/, '');
-        return requests.includes(text);
+    static #isCacheItem(line) {
+        return /^  (active|queued)  /.test(line);
     }
 
-    static #cacheItem(line, data) {
-        const comma = line.trim().endsWith(',') ? Ansi.gray(',') : '';
-        const request = line.trim().replace(/,$/, '');
-        const active = data && Array.isArray(data.activeRequests) && data.activeRequests.includes(request);
-        return `  ${active ? Ansi.red(request) : Ansi.green(request)}${comma}`;
+    static #cacheItem(line) {
+        const match = line.match(/^  (active|queued)  (.*)$/);
+        const status = match[1] === 'active' ? Ansi.yellow('active') : Ansi.gray('queued');
+        return `  ${status}  ${match[2]}`;
     }
 
     static #commandUsage(line) {
@@ -124,14 +115,13 @@ class RealCliRenderer {
             if (token.startsWith('--')) return Ansi.yellow(token);
             if (token.startsWith('<') && token.endsWith('>')) {
                 if (!commandColored) commandColored = true;
-                return Ansi.blue(token);
+                return Ansi.gray(token);
             }
             if (token.startsWith('[') && token.endsWith(']')) return Ansi.gray(token);
             if (/^[a-z]+$/.test(token) && !commandColored) {
                 commandColored = true;
-                return Ansi.blue(token);
+                return Ansi.cyan(token);
             }
-            if (/^[a-z]+$/.test(token)) return Ansi.green(token);
             return token;
         });
 
@@ -173,11 +163,7 @@ class RealCliRenderer {
     }
 
     static #inlineCommand(command) {
-        const [name, ...args] = command.split(' ');
-        return [
-            Ansi.blue(name),
-            ...args.map((arg) => Ansi.green(arg)),
-        ].join(' ');
+        return Ansi.cyan(command);
     }
 
     static #hasWordBoundary(text, index, length) {

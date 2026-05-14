@@ -55,8 +55,8 @@ class GameCliHelp {
             '  - cache clear defaults to cache clear all.',
             '  - cache clear last defaults to one pending command.',
             '  - The first cached command may already be sent to BO3 and waiting for ACK.',
-            '  - Active commands are shown in red and cannot be cleared.',
-            '  - Pending commands are shown in green and can be cleared.',
+            '  - Active commands are already sent and cannot be cleared.',
+            '  - Queued commands are pending and can be cleared.',
         ].join('\n');
     }
 

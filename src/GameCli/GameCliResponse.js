@@ -167,9 +167,8 @@ class GameCliResponse {
 
         if (notice.type === 'cachedFlush') {
             const map = notice.map ? ` on map ${notice.map}` : '';
-            const requests = Array.isArray(notice.requests) ? notice.requests : [];
             const prefix = notice.gameplayRecovered ? `live gameplay detected${map}` : 'ACK received';
-            return `[NOTICE] ${prefix}; sending cache { ${requests.join(', ')} }`;
+            return `[NOTICE] ${prefix}; sending cached commands.`;
         }
 
         if (notice.type === 'commandQueued') {
@@ -191,23 +190,22 @@ class GameCliResponse {
         const requests = result && Array.isArray(result.requests) ? result.requests : [];
         const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
         if (!requests.length) return activeRequests.length
-            ? `[NOTICE] no pending cache cleared; active { ${activeRequests.join(', ')} }`
-            : '[NOTICE] cache empty.';
+            ? '[CACHE] no pending commands cleared; active command kept.'
+            : '[CACHE] empty.';
 
         const label = result && result.mode === 'last' ? 'cleared last pending cache item.' : 'cleared pending cache.';
-        return activeRequests.length ? `[NOTICE] ${label} active { ${activeRequests.join(', ')} }` : `[NOTICE] ${label}`;
+        return activeRequests.length ? `[CACHE] ${label} active command kept.` : `[CACHE] ${label}`;
     }
 
     static #cacheShownText(result) {
         const requests = result && Array.isArray(result.requests) ? result.requests : [];
         const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
-        if (!requests.length && !activeRequests.length) return '[NOTICE] cache empty.';
+        if (!requests.length && !activeRequests.length) return '[CACHE] empty.';
 
-        const items = activeRequests.concat(requests).map((request, index, all) => {
-            const comma = index + 1 < all.length ? ',' : '';
-            return `  ${request}${comma}`;
-        });
-        return ['[NOTICE] cache:', '{', ...items, '}'].join('\n');
+        const total = activeRequests.length + requests.length;
+        const activeItems = activeRequests.map((request) => `  active  ${request}`);
+        const queuedItems = requests.map((request) => `  queued  ${request}`);
+        return [`[CACHE] ${total} command(s):`, ...activeItems, ...queuedItems].join('\n');
     }
 
     static #waitText(data) {
