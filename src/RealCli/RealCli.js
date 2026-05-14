@@ -1,8 +1,14 @@
 const readline = require('readline');
-const util = require('util');
 const GameCli = require('../GameCli/GameCli');
+const GameCliHelp = require('../GameCli/GameCliHelp');
 const GameCliResponse = require('../GameCli/GameCliResponse');
 const Ansi = require('../GameCli/GameCliAnsi');
+const defaultRealCliCommands = require('./Commands/defaultCommands');
+const RealCliCommandRegistry = require('./Commands/RealCliCommandRegistry');
+const RealCliCache = require('./RealCliCache');
+const RealCliCommandQueue = require('./RealCliCommandQueue');
+const RealCliConsoleRouter = require('./RealCliConsoleRouter');
+const RealCliKeyboard = require('./RealCliKeyboard');
 const RealCliOptions = require('./RealCliOptions');
 const RealCliRenderer = require('./RealCliRenderer');
 
@@ -22,10 +28,8 @@ class RealCli {
         this.shuttingDown = false;
         this.canceling = false;
         this.promptReady = false;
-        this.commandQueue = Promise.resolve();
-        this.commandQueueEntries = [];
-        this.commandActive = false;
-        this.activeCommandText = '';
+        this.commandQueue = new RealCliCommandQueue();
+        this.cache = new RealCliCache(gameCli, this.commandQueue);
     }
 
     /**
@@ -35,12 +39,35 @@ class RealCli {
     async run(argv = []) {
         const options = new RealCliOptions(argv);
         const renderer = new RealCliRenderer(options.output);
-        if (options.machineReadable) this.#routeLogsToStderr();
+        if (options.machineReadable) RealCliConsoleRouter.routeLogsToStderr();
         return options.hasCommand ? this.#runOne(options.text, renderer, options) : this.#runShell(renderer, options);
     }
 
+    /**
+     * Runs one non-interactive command and stops the BO3 runtime afterward.
+     *
+     * @param {string} text Command text.
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {RealCliOptions} options Parsed process options.
+     * @returns {Promise<number>} Process exit code.
+     */
     async #runOne(text, renderer, options) {
         try {
+            const realCliCommands = this.#realCliCommands(() => {});
+            const realCliResponse = this.#runRealCliCommand(text, realCliCommands);
+            if (realCliResponse) {
+                const response = await realCliResponse;
+                this.#write(renderer, response);
+                await this.#stop();
+                return response.ok ? 0 : 1;
+            }
+
+            if (text.trim().toLowerCase() === 'help') {
+                this.#write(renderer, this.#helpResponse(realCliCommands));
+                await this.#stop();
+                return 0;
+            }
+
             this.#write(renderer, await this.#execute(text, options));
             await this.#stop();
             return 0;
@@ -51,12 +78,22 @@ class RealCli {
         }
     }
 
+    /**
+     * Starts the interactive shell and keeps BO3 connection work alive.
+     *
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {RealCliOptions} options Parsed process options.
+     * @returns {Promise<number>} Process exit code.
+     */
     #runShell(renderer, options) {
         return new Promise((resolve) => {
             const shell = readline.createInterface({
                 input: process.stdin,
                 output: process.stdout,
                 prompt: renderer.output === 'json' ? '' : `${Ansi.cyan('bo3')} ${Ansi.gray('>')} `,
+            });
+            const realCliCommands = this.#realCliCommands(() => {
+                if (renderer.output !== 'json') process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
             });
             let removeKeyBinding = () => {};
             let removeNoticeBinding = () => {};
@@ -73,11 +110,17 @@ class RealCli {
                 await this.#stop();
                 resolve(exitCode);
             };
-            restoreConsole = this.#routeShellLogs(shell, renderer);
+            restoreConsole = renderer.output === 'json'
+                ? () => {}
+                : RealCliConsoleRouter.routeShellLogs(
+                    shell,
+                    () => this.promptReady,
+                    () => this.shuttingDown,
+                );
             removeNoticeBinding = this.#bindNotices((notice) => {
                 this.#writeShell(shell, renderer, GameCliResponse.notice(notice));
             });
-            removeKeyBinding = this.#bindShellKeys(
+            removeKeyBinding = RealCliKeyboard.bind(
                 shell,
                 () => this.#cancel(shell, renderer, options),
                 () => close(0),
@@ -87,8 +130,16 @@ class RealCli {
                 const text = line.trim();
                 if (!text) return this.#prompt(shell, renderer);
                 if (text === 'exit' || text === 'quit') return close(0);
-                if (this.#runShellCommand(text, shell, renderer, options)) return this.#prompt(shell, renderer);
-                if (this.#runCacheCommand(text, shell, renderer)) return this.#prompt(shell, renderer);
+                if (text === 'help') {
+                    this.#writeShell(shell, renderer, this.#helpResponse(realCliCommands));
+                    return this.#prompt(shell, renderer);
+                }
+
+                const realCliResponse = this.#runRealCliCommand(text, realCliCommands);
+                if (realCliResponse) {
+                    this.#writeShell(shell, renderer, await realCliResponse);
+                    return this.#prompt(shell, renderer);
+                }
 
                 this.#enqueueShellCommand(text, shell, renderer, options);
                 this.#prompt(shell, renderer);
@@ -99,11 +150,21 @@ class RealCli {
                 if (!this.shuttingDown) close(0);
             });
 
-            this.#startShell(shell, renderer, options, close);
+            this.#startShell(shell, renderer, options, close, realCliCommands);
         });
     }
 
-    async #startShell(shell, renderer, options, close) {
+    /**
+     * Starts BO3 for interactive mode, prints startup help, then shows the prompt.
+     *
+     * @param {import('readline').Interface} shell Readline shell.
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {RealCliOptions} options Parsed process options.
+     * @param {(exitCode?: number) => Promise<void>} close Shell close callback.
+     * @param {RealCliCommandRegistry} realCliCommands Interactive command registry.
+     * @returns {Promise<void>}
+     */
+    async #startShell(shell, renderer, options, close, realCliCommands) {
         try {
             if (renderer.output !== 'json') {
                 const mode = options.dryRun ? 'dry-run mode; no BO3 connection will start.' : 'Type help. Ctrl+C cancels. Ctrl+W exits.';
@@ -115,7 +176,7 @@ class RealCli {
                 await this.gameCli.ready();
             }
 
-            if (renderer.output !== 'json') this.#write(renderer, this.gameCli.preview('help'));
+            if (renderer.output !== 'json') this.#write(renderer, this.#helpResponse(realCliCommands));
             this.#prompt(shell, renderer);
         } catch (error) {
             this.#write(renderer, GameCliResponse.failure(error));
@@ -123,138 +184,53 @@ class RealCli {
         }
     }
 
+    /**
+     * Executes or previews one GameCli command according to process options.
+     *
+     * @param {string} text Command text.
+     * @param {RealCliOptions} options Parsed process options.
+     * @returns {Promise<GameCliResponse>|GameCliResponse} Command response.
+     */
     #execute(text, options) {
         return options.dryRun ? this.gameCli.preview(text) : this.gameCli.execute(text);
     }
 
+    /**
+     * Adds one gameplay command to the interactive serial queue.
+     *
+     * @param {string} text Command text.
+     * @param {import('readline').Interface} shell Readline shell.
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {RealCliOptions} options Parsed process options.
+     */
     #enqueueShellCommand(text, shell, renderer, options) {
-        const entry = { text, canceled: false };
-        const queuedBehindCommand = this.commandActive || this.commandQueueEntries.length > 0;
-        this.commandQueueEntries.push(entry);
-        if (queuedBehindCommand) {
+        this.commandQueue.enqueue(text, async (commandText) => {
+            try {
+                this.#writeShell(shell, renderer, await this.#execute(commandText, options));
+            } catch (error) {
+                this.#writeShell(shell, renderer, GameCliResponse.failure(error));
+            }
+        }, () => {
             this.#writeShell(shell, renderer, GameCliResponse.notice({
                 type: 'commandQueued',
                 addedRequests: [text],
-                ...this.#cacheSnapshot(),
+                ...this.cache.snapshot(),
             }));
-        }
-
-        const run = async () => {
-            const index = this.commandQueueEntries.indexOf(entry);
-            if (index !== -1) this.commandQueueEntries.splice(index, 1);
-            if (entry.canceled) return;
-
-            this.commandActive = true;
-            this.activeCommandText = text;
-            try {
-                this.#writeShell(shell, renderer, await this.#execute(text, options));
-            } catch (error) {
-                this.#writeShell(shell, renderer, GameCliResponse.failure(error));
-            } finally {
-                this.commandActive = false;
-                this.activeCommandText = '';
-            }
-        };
-
-        this.commandQueue = this.commandQueue.then(run, run);
-    }
-
-    #runShellCommand(text, shell, renderer, options) {
-        const command = text.trim().toLowerCase();
-        if (command === 'clear help') {
-            this.#writeShell(shell, renderer, this.gameCli.preview('clear help'));
-            return true;
-        }
-
-        if (command !== 'clear' && command !== 'cls') {
-            if (command.startsWith('clear ') || command.startsWith('cls ')) {
-                this.#writeShell(shell, renderer, GameCliResponse.failure(new TypeError('clear usage: clear. Run: clear help.')));
-                return true;
-            }
-
-            return false;
-        }
-
-        if (renderer.output !== 'json') {
-            process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
-        }
-
-        return true;
-    }
-
-    #runCacheCommand(text, shell, renderer) {
-        const tokens = text.trim().toLowerCase().split(/\s+/);
-        if (tokens[0] !== 'cache') return false;
-
-        if (tokens.length === 2 && tokens[1] === 'help') {
-            this.#writeShell(shell, renderer, this.gameCli.preview('cache help'));
-            return true;
-        }
-
-        if (tokens.length === 1 || (tokens.length === 2 && tokens[1] === 'show')) {
-            this.#writeShell(shell, renderer, GameCliResponse.cacheShown(this.#cacheSnapshot()));
-            return true;
-        }
-
-        if (tokens.length >= 2 && tokens[1] === 'clear') {
-            try {
-                const clear = RealCli.#cacheClear(tokens);
-                this.#writeShell(shell, renderer, GameCliResponse.cacheCleared(this.#clearCache(clear.mode, clear.count)));
-            } catch (error) {
-                this.#writeShell(shell, renderer, GameCliResponse.failure(error));
-            }
-            return true;
-        }
-
-        this.#writeShell(shell, renderer, GameCliResponse.failure(new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: cache help.')));
-        return true;
-    }
-
-    #cacheSnapshot() {
-        const bo3 = this.gameCli.showCache().data || { activeRequests: [], requests: [], active: false };
-        const activeRequests = bo3.activeRequests && bo3.activeRequests.length
-            ? bo3.activeRequests
-            : (this.activeCommandText ? [this.activeCommandText] : []);
-
-        return {
-            activeRequests,
-            requests: (bo3.requests || []).concat(this.commandQueueEntries.map((entry) => entry.text)),
-            active: Boolean(activeRequests.length),
-        };
-    }
-
-    #clearCache(mode = 'all', count = 1) {
-        const waiting = this.#clearQueuedShellCommands(mode, count);
-        const remaining = mode === 'last' ? Math.max(0, count - waiting.length) : count;
-        const bo3 = (mode === 'last' && remaining === 0)
-            ? { requests: [], activeRequests: [], active: false, cleared: 0 }
-            : (this.gameCli.clearCache(mode, remaining || 1).data || { requests: [], activeRequests: [], active: false, cleared: 0 });
-        const activeRequests = bo3.activeRequests && bo3.activeRequests.length
-            ? bo3.activeRequests
-            : (this.activeCommandText ? [this.activeCommandText] : []);
-
-        return {
-            cleared: waiting.length + (bo3.cleared || 0),
-            requests: (bo3.requests || []).concat(waiting),
-            activeRequests,
-            active: Boolean(activeRequests.length),
-        };
-    }
-
-    #clearQueuedShellCommands(mode = 'all', count = 1) {
-        const entries = mode === 'all' ? this.commandQueueEntries : this.commandQueueEntries.slice(-count);
-        const waiting = entries.map((entry) => {
-            entry.canceled = true;
-            return entry.text;
         });
-        this.commandQueueEntries = this.commandQueueEntries.filter((entry) => !entries.includes(entry));
-        return waiting;
     }
 
+    /**
+     * Handles Ctrl+C by clearing pending work and restarting the connection.
+     *
+     * @param {import('readline').Interface} shell Readline shell.
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {RealCliOptions} options Parsed process options.
+     * @returns {Promise<void>}
+     */
     async #cancel(shell, renderer, options) {
         if (this.canceling || this.shuttingDown) return;
         this.canceling = true;
-        this.#clearQueuedShellCommands('all', 1);
+        this.commandQueue.clear('all');
         this.gameCli.clearCache();
 
         shell.line = '';
@@ -273,6 +249,11 @@ class RealCli {
         }
     }
 
+    /**
+     * Stops BO3 runtime without letting shutdown warnings crash the CLI.
+     *
+     * @returns {Promise<void>}
+     */
     async #stop() {
         try {
             await this.gameCli.stop();
@@ -281,11 +262,24 @@ class RealCli {
         }
     }
 
+    /**
+     * Writes one response outside readline prompt management.
+     *
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {GameCliResponse} response Response to render.
+     */
     #write(renderer, response) {
         const text = renderer.render(response);
         if (text) process.stdout.write(`${text}\n`);
     }
 
+    /**
+     * Writes one response while preserving the interactive prompt line.
+     *
+     * @param {import('readline').Interface} shell Readline shell.
+     * @param {RealCliRenderer} renderer Output renderer.
+     * @param {GameCliResponse} response Response to render.
+     */
     #writeShell(shell, renderer, response) {
         const text = renderer.render(response);
         if (!text) return;
@@ -299,6 +293,12 @@ class RealCli {
         if (this.promptReady && !this.shuttingDown && typeof shell._refreshLine === 'function') shell._refreshLine();
     }
 
+    /**
+     * Shows the prompt when human output is enabled.
+     *
+     * @param {import('readline').Interface} shell Readline shell.
+     * @param {RealCliRenderer} renderer Output renderer.
+     */
     #prompt(shell, renderer) {
         if (renderer.output !== 'json') {
             this.promptReady = true;
@@ -306,62 +306,47 @@ class RealCli {
         }
     }
 
-    #routeShellLogs(shell, renderer) {
-        if (renderer.output === 'json') return () => {};
-
-        const original = {
-            log: console.log,
-            warn: console.warn,
-            error: console.error,
-        };
-
-        const write = (method, args) => {
-            if (this.promptReady) {
-                readline.clearLine(process.stdout, 0);
-                readline.cursorTo(process.stdout, 0);
-            }
-
-            original[method](util.format(...args));
-            if (this.promptReady && !this.shuttingDown && typeof shell._refreshLine === 'function') shell._refreshLine();
-        };
-
-        console.log = (...args) => write('log', args);
-        console.warn = (...args) => write('warn', args);
-        console.error = (...args) => write('error', args);
-
-        return () => {
-            console.log = original.log;
-            console.warn = original.warn;
-            console.error = original.error;
-        };
+    /**
+     * Builds the interactive-only command registry for this shell session.
+     *
+     * @param {() => void} clearScreen Clears the visible terminal.
+     * @returns {RealCliCommandRegistry} Interactive command registry.
+     */
+    #realCliCommands(clearScreen) {
+        return new RealCliCommandRegistry(defaultRealCliCommands(
+            this.gameCli,
+            this.cache,
+            clearScreen,
+        ));
     }
 
-    #bindShellKeys(shell, cancel, quit) {
-        const write = shell._ttyWrite;
-        if (typeof write !== 'function' || typeof shell._deleteWordLeft !== 'function') return () => {};
-
-        shell._ttyWrite = function wrappedTtyWrite(sequence, key = {}) {
-            if (RealCli.#ctrlC(sequence, key)) {
-                cancel();
-                return;
-            }
-
-            if (RealCli.#ctrlW(sequence, key)) {
-                quit();
-                return;
-            }
-
-            if (RealCli.#ctrlBackspace(sequence, key)) {
-                this._deleteWordLeft();
-                return;
-            }
-
-            write.call(this, sequence, key);
-        };
-
-        return () => { shell._ttyWrite = write; };
+    /**
+     * @param {string} text Command text.
+     * @param {RealCliCommandRegistry} realCliCommands Interactive command registry.
+     * @returns {import('../GameCli/GameCliResponse')|Promise<import('../GameCli/GameCliResponse')>|undefined} Command response.
+     */
+    #runRealCliCommand(text, realCliCommands) {
+        return realCliCommands.run(text);
     }
 
+    /**
+     * @param {RealCliCommandRegistry} realCliCommands Interactive command registry.
+     * @returns {GameCliResponse} Interactive help response.
+     */
+    #helpResponse(realCliCommands) {
+        return GameCliResponse.help(GameCliHelp.general(this.gameCli.registry, [
+            'get help',
+            'post help',
+            ...realCliCommands.helpLines(),
+        ]));
+    }
+
+    /**
+     * Mirrors async GameCli notices into the interactive shell.
+     *
+     * @param {(notice: object) => void} handler Notice handler.
+     * @returns {() => void} Unsubscribe callback.
+     */
     #bindNotices(handler) {
         if (typeof this.gameCli.on !== 'function' || typeof this.gameCli.off !== 'function') return () => {};
 
@@ -369,41 +354,6 @@ class RealCli {
         return () => this.gameCli.off('notice', handler);
     }
 
-    static #ctrlBackspace(sequence, key) {
-        return key
-            && key.name === 'backspace'
-            && (
-                key.ctrl
-                || sequence === '\b'
-                || sequence === '\x1b[127;5u'
-                || sequence === '\x1b[8;5~'
-            );
-    }
-
-    static #ctrlC(sequence, key) {
-        return key && key.ctrl && key.name === 'c' && sequence === '\x03';
-    }
-
-    static #ctrlW(sequence, key) {
-        return key && key.ctrl && key.name === 'w' && sequence === '\x17';
-    }
-
-    static #cacheClear(tokens) {
-        if (tokens.length === 2) return { mode: 'all', count: 1 };
-        if (tokens.length === 3 && tokens[2] === 'all') return { mode: 'all', count: 1 };
-        if (tokens.length === 3 && tokens[2] === 'last') return { mode: 'last', count: 1 };
-        if (tokens.length === 4 && tokens[2] === 'last') {
-            const count = Number.parseInt(tokens[3], 10);
-            if (!Number.isInteger(count) || count < 1 || String(count) !== tokens[3]) throw new TypeError('cache clear last count must be a positive integer.');
-            return { mode: 'last', count };
-        }
-
-        throw new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: cache help.');
-    }
-
-    #routeLogsToStderr() {
-        console.log = (...args) => console.error(...args);
-    }
 }
 
 module.exports = RealCli;

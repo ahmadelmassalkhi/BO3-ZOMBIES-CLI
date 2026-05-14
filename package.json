@@ -22,5 +22,10 @@
     "bin",
     "src",
     "index.js"
-  ]
+  ],
+  "pkg": {
+    "scripts": [
+      "src/**/*.js"
+    ]
+  }
 }

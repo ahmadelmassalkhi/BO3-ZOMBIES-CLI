@@ -11,15 +11,15 @@ class GameCliCommandWeapon extends GameCliCommand {
             'weapon take default',
             'weapon take all',
         ], 'Gives or takes weapons.', [
-            'Use get weapons to list valid weapon names.',
-            'weapon defaults to weapon give.',
-            'weapon give defaults to random.',
-            'weapon take defaults to default.',
+            'Use `get weapons` to list valid weapon names.',
+            '`weapon` defaults to `weapon give`.',
+            '`weapon give` defaults to random.',
+            '`weapon take` defaults to default.',
         ]);
     }
 
     events(bo3, args) {
-        if (args.length > 2) throw this.usageError('weapon usage: weapon [give|take] [weapon].');
+        if (args.length > 2) throw this.usageError('weapon accepts at most one action and one target.');
         const action = args.length ? GameCliCommandWeapon.#action(args[0]) : Bo3EventWeapon.actions.GIVE;
         if (!action) throw this.usageError('weapon.action must be give or take.');
 

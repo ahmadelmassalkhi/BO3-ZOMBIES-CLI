@@ -1,5 +1,13 @@
+/**
+ * Builds plain help text; RealCliRenderer owns colors.
+ */
 class GameCliHelp {
-    static general(registry) {
+    /**
+     * @param {import('./GameCliCommandRegistry')} registry Gameplay command registry.
+     * @param {string[]} [cliCommands] CLI command help lines.
+     * @returns {string} Main help page.
+     */
+    static general(registry, cliCommands = ['get help', 'post help', 'cache help', 'clear help']) {
         return [
             '[CLI] Usage:',
             '  help',
@@ -7,10 +15,7 @@ class GameCliHelp {
             '  <command> [args]',
             '',
             '[CLI] CLI commands:',
-            '  get help',
-            '  post help',
-            '  cache help',
-            '  clear',
+            ...cliCommands.map((command) => `  ${command}`),
             '',
             '[CLI] Gameplay commands:',
             ...registry.commands
@@ -19,21 +24,31 @@ class GameCliHelp {
         ].join('\n');
     }
 
+    /**
+     * @param {import('./Commands/GameCliCommand')} command Gameplay command.
+     * @returns {string} Command help page.
+     */
     static command(command) {
         return GameCliHelp.#page(`${command.name} usage`, command.usage, command.notes);
     }
 
+    /**
+     * @returns {string} Post command help page.
+     */
     static post() {
         return GameCliHelp.#page('post usage', [
             'post <command> [args]',
             'post points +100',
             'post weapon give ray_gun',
         ], [
-            'post is optional; gameplay commands run as post by default.',
-            'post cannot run get.',
+            '`post` is optional; gameplay commands run as post by default.',
+            '`post` cannot run `get`.',
         ]);
     }
 
+    /**
+     * @returns {string} Cache command help page.
+     */
     static cache() {
         return GameCliHelp.#page('cache usage', [
             'cache',
@@ -43,23 +58,32 @@ class GameCliHelp {
             'cache clear last',
             'cache clear last <count>',
         ], [
-            'cache defaults to cache show.',
-            'cache clear defaults to cache clear all.',
-            'cache clear last defaults to one pending command.',
+            '`cache` defaults to `cache show`.',
+            '`cache clear` defaults to `cache clear all`.',
+            '`cache clear last` defaults to one pending command.',
             'The active command may already be sent to BO3 and waiting for ACK.',
             'Active commands cannot be cleared.',
             'Queued commands can be cleared.',
         ]);
     }
 
+    /**
+     * @returns {string} Clear command help page.
+     */
     static clear() {
         return GameCliHelp.#page('clear usage', [
             'clear',
         ], [
-            'clear is interactive-only and clears the visible CLI log.',
+            '`clear` is interactive-only and clears the visible CLI log.',
         ]);
     }
 
+    /**
+     * @param {string} title Help title without [CLI].
+     * @param {string[]} usageLines Usage lines.
+     * @param {string[]} [notes=[]] Optional notes.
+     * @returns {string} Help page.
+     */
     static #page(title, usageLines, notes = []) {
         const lines = [
             `[CLI] ${title}:`,

@@ -8,13 +8,13 @@ class GameCliCommandZombie extends GameCliCommand {
             'zombie <count>',
             'zombie <count> <name>',
         ], 'Spawns zombies.', [
-            'zombie defaults to zombie 1 Zombie.',
+            '`zombie` defaults to `zombie 1 Zombie`.',
             'count must be the first argument when provided.',
         ]);
     }
 
     events(bo3, args) {
-        if (args.length > 2) throw this.usageError('zombie usage: zombie [count] [name].');
+        if (args.length > 2) throw this.usageError('zombie accepts at most count and name.');
         if (!args.length) return [new Bo3EventZombie(bo3)];
 
         if (!/^\d+$/.test(args[0])) throw this.usageError('zombie.count must be the first argument and must be a positive integer.');

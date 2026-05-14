@@ -7,14 +7,14 @@ class GameCliCommandPowerup extends GameCliCommand {
             'powerup',
             'powerup <powerup>',
         ], 'Gives a powerup.', [
-            'Use get powerups to list valid powerup names.',
-            'powerup defaults to random.',
-            'powerup does not take give or take.',
+            'Use `get powerups` to list valid powerup names.',
+            '`powerup` defaults to random.',
+            '`powerup` does not take `give` or `take`.',
         ]);
     }
 
     events(bo3, args) {
-        if (args.length > 1) throw this.usageError('powerup usage: powerup [powerup].');
+        if (args.length > 1) throw this.usageError('powerup accepts at most one powerup name.');
         if (GameCliCommandPowerup.#action(args[0])) throw this.usageError('powerup does not take an action.');
 
         const powerup = args[0] ? this.canonicalToken(args[0], 'powerup.name') : 'random';

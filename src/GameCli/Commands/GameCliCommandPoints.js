@@ -12,7 +12,7 @@ class GameCliCommandPoints extends GameCliCommand {
     }
 
     events(bo3, args) {
-        if (args.length !== 1) throw this.usageError('points usage: points <+amount|-amount>.');
+        if (args.length !== 1) throw this.usageError('points requires exactly one signed amount.');
         if (!/^[+-]\d+$/.test(args[0])) throw this.usageError('points.amount must start with + or -.');
 
         const amount = Number.parseInt(args[0], 10);

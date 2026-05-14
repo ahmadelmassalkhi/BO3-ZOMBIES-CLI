@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const Bo3 = require('../Bo3/Bo3');
+const GameCliCache = require('./GameCliCache');
 const GameCliCommandRegistry = require('./GameCliCommandRegistry');
 const GameCliHelp = require('./GameCliHelp');
 const GameCliParser = require('./GameCliParser');
@@ -185,17 +186,7 @@ class GameCli extends EventEmitter {
 
     #compileCache(tokens) {
         if (tokens.length === 2 && tokens[1].toLowerCase() === 'help') return { help: this.#help('cache') };
-        if (tokens.length === 1) return { cache: { action: 'show' } };
-        if (tokens.length === 2 && tokens[1].toLowerCase() === 'show') return { cache: { action: 'show' } };
-        if (tokens.length === 2 && tokens[1].toLowerCase() === 'clear') return { cache: { action: 'clear', mode: 'all', count: 1 } };
-        if (tokens.length === 3 && tokens[1].toLowerCase() === 'clear' && tokens[2].toLowerCase() === 'all') return { cache: { action: 'clear', mode: 'all', count: 1 } };
-        if (tokens.length === 3 && tokens[1].toLowerCase() === 'clear' && tokens[2].toLowerCase() === 'last') return { cache: { action: 'clear', mode: 'last', count: 1 } };
-        if (tokens.length === 4 && tokens[1].toLowerCase() === 'clear' && tokens[2].toLowerCase() === 'last') {
-            const count = Number.parseInt(tokens[3], 10);
-            if (!Number.isInteger(count) || count < 1 || String(count) !== tokens[3]) throw new TypeError('cache clear last count must be a positive integer.');
-            return { cache: { action: 'clear', mode: 'last', count } };
-        }
-        throw new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: cache help.');
+        return { cache: GameCliCache.parse(tokens.map((token) => token.toLowerCase())) };
     }
 
     #compileClear(tokens) {

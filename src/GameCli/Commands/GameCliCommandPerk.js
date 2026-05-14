@@ -10,15 +10,15 @@ class GameCliCommandPerk extends GameCliCommand {
             'perk take',
             'perk take <perk>',
         ], 'Gives or takes perks.', [
-            'Use get perks to list valid perk names.',
-            'perk defaults to perk give.',
-            'perk give defaults to random.',
-            'perk take defaults to last.',
+            'Use `get perks` to list valid perk names.',
+            '`perk` defaults to `perk give`.',
+            '`perk give` defaults to random.',
+            '`perk take` defaults to last.',
         ]);
     }
 
     events(bo3, args) {
-        if (args.length > 2) throw this.usageError('perk usage: perk [give|take] [perk].');
+        if (args.length > 2) throw this.usageError('perk accepts at most one action and one perk.');
         const action = args.length ? GameCliCommandPerk.#action(args[0]) : Bo3EventPerk.actions.GIVE;
         if (!action) throw this.usageError('perk.action must be give or take.');
 

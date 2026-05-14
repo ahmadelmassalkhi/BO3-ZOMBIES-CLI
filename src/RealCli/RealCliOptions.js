@@ -1,3 +1,6 @@
+/**
+ * Parses process argv flags for one CLI invocation.
+ */
 class RealCliOptions {
     /**
      * @param {string[]} argv Process args after executable name.
@@ -43,14 +46,23 @@ class RealCliOptions {
         Object.freeze(this);
     }
 
+    /**
+     * @returns {boolean} True when argv includes a command to run once.
+     */
     get hasCommand() {
         return this.command.length > 0;
     }
 
+    /**
+     * @returns {string} Command text reconstructed from argv.
+     */
     get text() {
         return this.command.join(' ');
     }
 
+    /**
+     * @returns {boolean} True when stdout must remain JSON-only.
+     */
     get machineReadable() {
         return this.output === 'json';
     }

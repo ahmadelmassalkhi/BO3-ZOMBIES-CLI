@@ -1,6 +1,9 @@
 const Ansi = require('../GameCli/GameCliAnsi');
 const GameCliResponse = require('../GameCli/GameCliResponse');
 
+/**
+ * Renders stable GameCli responses for humans, plain text, or JSON integrations.
+ */
 class RealCliRenderer {
     /**
      * @param {'ansi'|'text'|'json'} output Output mode.
@@ -133,59 +136,16 @@ class RealCliRenderer {
     static #note(line) {
         const prefix = line.match(/^\s*-\s*/)[0];
         const content = line.slice(prefix.length);
-        const commands = [
-            'get weapons wonderweapons',
-            'cache clear last',
-            'cache clear all',
-            'get powerups',
-            'weapon give',
-            'weapon take',
-            'cache clear',
-            'get weapons',
-            'get perks',
-            'perk give',
-            'perk take',
-            'cache show',
-            'cache',
-        ];
-        let index = 0;
-        let output = Ansi.gray(prefix);
-        let gray = '';
+        const segments = content.split(/(`[^`]+`)/g).filter(Boolean).map((segment) => {
+            if (segment.startsWith('`') && segment.endsWith('`')) return RealCliRenderer.#inlineCommand(segment.slice(1, -1));
+            return Ansi.gray(segment);
+        });
 
-        const flush = () => {
-            if (!gray) return;
-            output += Ansi.gray(gray);
-            gray = '';
-        };
-
-        while (index < content.length) {
-            const command = commands.find((item) => {
-                return content.slice(index).startsWith(item)
-                    && RealCliRenderer.#hasWordBoundary(content, index, item.length);
-            });
-
-            if (command) {
-                flush();
-                output += RealCliRenderer.#inlineCommand(command);
-                index += command.length;
-            } else {
-                gray += content[index];
-                index += 1;
-            }
-        }
-
-        flush();
-        return output;
+        return `${Ansi.gray(prefix)}${segments.join('')}`;
     }
 
     static #inlineCommand(command) {
         return Ansi.cyan(command);
-    }
-
-    static #hasWordBoundary(text, index, length) {
-        const before = index > 0 ? text[index - 1] : '';
-        const after = text[index + length] || '';
-        return !/[A-Za-z0-9_]/.test(before) && !/[A-Za-z0-9_]/.test(after);
     }
 
     static #activeRequests(data) {

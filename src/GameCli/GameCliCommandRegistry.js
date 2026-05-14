@@ -2,6 +2,9 @@ const GameCliCommand = require('./Commands/GameCliCommand');
 const defaultCommands = require('./Commands/defaultCommands');
 
 class GameCliCommandRegistry {
+    /**
+     * @param {GameCliCommand[]} [commands=defaultCommands()] Registered gameplay commands.
+     */
     constructor(commands = defaultCommands()) {
         if (!Array.isArray(commands) || !commands.every((command) => command instanceof GameCliCommand)) {
             throw new TypeError('GameCliCommandRegistry.commands must be GameCliCommand[].');
@@ -11,6 +14,11 @@ class GameCliCommandRegistry {
         Object.freeze(this);
     }
 
+    /**
+     * @param {string} name Command name.
+     * @returns {GameCliCommand} Matching command.
+     * @throws {TypeError} When no command owns the name.
+     */
     get(name) {
         const command = this.commands.find((entry) => entry.matches(name));
         if (command) return command;

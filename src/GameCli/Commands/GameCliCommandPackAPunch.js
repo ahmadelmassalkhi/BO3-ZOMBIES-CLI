@@ -8,12 +8,12 @@ class GameCliCommandPackAPunch extends GameCliCommand {
             'pap default',
             'pap all',
         ], 'Pack-a-Punches the held weapon or all weapons.', [
-            'pap defaults to pap default.',
+            '`pap` defaults to `pap default`.',
         ]);
     }
 
     events(bo3, args) {
-        if (args.length > 1) throw this.usageError('pap usage: pap [default|all].');
+        if (args.length > 1) throw this.usageError('pap accepts at most one target.');
         if (args[0] && args[0] !== 'default' && args[0] !== 'all') throw this.usageError('pap target must be default or all.');
         return [new Bo3EventPackAPunch(bo3, args[0] || 'default')];
     }

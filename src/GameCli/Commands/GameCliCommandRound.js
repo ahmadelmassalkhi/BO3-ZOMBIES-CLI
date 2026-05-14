@@ -12,7 +12,7 @@ class GameCliCommandRound extends GameCliCommand {
     }
 
     events(bo3, args) {
-        if (args.length !== 1) throw this.usageError('round usage: round <+count|-count>.');
+        if (args.length !== 1) throw this.usageError('round requires exactly one signed count.');
         if (!/^[+-]\d+$/.test(args[0])) throw this.usageError('round.count must start with + or -.');
 
         const count = Number.parseInt(args[0], 10);
