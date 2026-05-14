@@ -30,6 +30,7 @@ class GameConnectionPacketDeliveryWorker {
         this.running = false;
         this.promise = null;
         this.lastErrorLogAt = 0;
+        this.debug = process.env.BO3_CONNECTION_DEBUG === '1';
     }
 
     /**
@@ -93,10 +94,11 @@ class GameConnectionPacketDeliveryWorker {
      */
     #logWorkerError(error) {
         const now = Date.now();
+        if (!this.debug) return;
         if (now - this.lastErrorLogAt < 5000) return;
         this.lastErrorLogAt = now;
         const message = error && error.message ? error.message : String(error);
-        console.error('[BO3 CONNECTION] transport worker recovered from error:', message);
+        console.warn('[BO3 CONNECTION] transport worker recovered from error:', message);
     }
 }
 

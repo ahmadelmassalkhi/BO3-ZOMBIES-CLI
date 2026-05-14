@@ -36,6 +36,7 @@ class GameConnectionReliablePacketSender {
         this.ackPollMs = options.ackPollMs;
         this.ackResendMs = options.ackResendMs;
         this.lastAckErrorLogAt = 0;
+        this.debug = process.env.BO3_CONNECTION_DEBUG === '1';
     }
 
     /**
@@ -145,6 +146,7 @@ class GameConnectionReliablePacketSender {
      */
     #logAckReadError(error) {
         const now = Date.now();
+        if (!this.debug) return;
         if (now - this.lastAckErrorLogAt < 5000) return;
         this.lastAckErrorLogAt = now;
         const message = error && error.message ? error.message : String(error);

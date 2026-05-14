@@ -68,13 +68,14 @@ class Bo3 extends EventEmitter {
     /**
      * @param {string[][]} records BO3 command records.
      * @param {string} [label='cli command'] Log/error label.
+     * @param {string[]} [requests] Human CLI requests represented by these records.
      * @returns {Promise<object|undefined>} Connection send result.
      */
-    sendRecords(records, label = 'cli command') {
+    sendRecords(records, label = 'cli command', requests = undefined) {
         const stopVersion = this.#stopVersion;
         this.start();
         return Promise.resolve()
-            .then(() => this.#gameConnection().schedulePayload(records))
+            .then(() => this.#gameConnection().schedulePayload(records, requests))
             .catch((error) => {
                 if (this.#stopping || this.#stopVersion !== stopVersion) {
                     if (error && error.message === STOPPED_BEFORE_ACK) return undefined;

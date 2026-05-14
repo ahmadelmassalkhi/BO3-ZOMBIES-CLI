@@ -153,7 +153,7 @@ class GameCliResponse {
     }
 
     static #queuedText(data) {
-        return `[BO3 NOTICE] ${GameCliResponse.#waitText(data)}; cache { ${GameCliResponse.#requestList(data)} }`;
+        return `[BO3 NOTICE] ${GameCliResponse.#waitText(data)}; added { ${GameCliResponse.#addedList(data)} } to cache.`;
     }
 
     static #noticeText(notice) {
@@ -173,7 +173,7 @@ class GameCliResponse {
         }
 
         if (notice.type === 'commandQueued') {
-            return `[BO3 NOTICE] CLI busy; cache { ${GameCliResponse.#requestList(notice)} }`;
+            return `[BO3 NOTICE] CLI busy; added { ${GameCliResponse.#addedList(notice)} } to cache.`;
         }
 
         if (notice.type === 'cachedError') {
@@ -191,12 +191,11 @@ class GameCliResponse {
         const requests = result && Array.isArray(result.requests) ? result.requests : [];
         const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
         if (!requests.length) return activeRequests.length
-            ? `[BO3 NOTICE] cache { ${GameCliResponse.#requestList(result)} }`
+            ? `[BO3 NOTICE] no pending cache cleared; active { ${activeRequests.join(', ')} }`
             : '[BO3 NOTICE] cache empty.';
 
-        if (activeRequests.length) return `[BO3 NOTICE] cleared cache { ${requests.join(', ')} }; active { ${activeRequests.join(', ')} }`;
-
-        return `[BO3 NOTICE] cleared cache { ${requests.join(', ')} }`;
+        const label = result && result.mode === 'last' ? 'cleared last pending cache item.' : 'cleared pending cache.';
+        return activeRequests.length ? `[BO3 NOTICE] ${label} active { ${activeRequests.join(', ')} }` : `[BO3 NOTICE] ${label}`;
     }
 
     static #cacheShownText(result) {
@@ -204,7 +203,16 @@ class GameCliResponse {
         const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
         if (!requests.length && !activeRequests.length) return '[BO3 NOTICE] cache empty.';
 
-        return `[BO3 NOTICE] cache { ${GameCliResponse.#requestList(result)} }`;
+        const items = activeRequests.concat(requests).map((request, index, all) => {
+            const comma = index + 1 < all.length ? ',' : '';
+            return `  ${request}${comma}`;
+        });
+        return ['[BO3 NOTICE] cache:', '{', ...items, '}'].join('\n');
+    }
+
+    static #addedList(data) {
+        const requests = data && Array.isArray(data.addedRequests) ? data.addedRequests : [];
+        return requests.join(', ');
     }
 
     static #requestList(data) {

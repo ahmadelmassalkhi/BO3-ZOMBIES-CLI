@@ -29,6 +29,8 @@ class RealCliRenderer {
             if (line.startsWith('[BO3 REPORT]')) return RealCliRenderer.#report(line);
 
             if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
+            if (line === '{' || line === '}') return Ansi.gray(line);
+            if (RealCliRenderer.#isCacheItem(line, data)) return RealCliRenderer.#cacheItem(line, data);
             if (line.match(/^  - /)) return RealCliRenderer.#note(line);
 
             const helpCommand = line.match(/^  ([a-z]+)(?: ([a-z]+))?$/);
@@ -92,6 +94,21 @@ class RealCliRenderer {
             items.map((item) => activeRequests.includes(item) ? Ansi.red(item) : Ansi.green(item)).join(Ansi.gray(', ')),
             Ansi.gray(' }'),
         ].join('');
+    }
+
+    static #isCacheItem(line, data) {
+        const requests = data
+            ? (data.activeRequests || []).concat(data.requests || [])
+            : [];
+        const text = line.trim().replace(/,$/, '');
+        return requests.includes(text);
+    }
+
+    static #cacheItem(line, data) {
+        const comma = line.trim().endsWith(',') ? Ansi.gray(',') : '';
+        const request = line.trim().replace(/,$/, '');
+        const active = data && Array.isArray(data.activeRequests) && data.activeRequests.includes(request);
+        return `  ${active ? Ansi.red(request) : Ansi.green(request)}${comma}`;
     }
 
     static #commandUsage(line) {

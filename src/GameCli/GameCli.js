@@ -107,7 +107,8 @@ class GameCli extends EventEmitter {
 
         const records = GameCli.#records(compiled.commands);
         const label = compiled.commands.map((command) => command.name).join(', ');
-        const result = records.length ? await this.bo3.sendRecords(records, label) : undefined;
+        const requests = compiled.commands.map((command) => command.request);
+        const result = records.length ? await this.bo3.sendRecords(records, label, requests) : undefined;
         return result && result.queued
             ? GameCliResponse.queued(records.length, records, result)
             : GameCliResponse.sent(records.length, records, result);
@@ -147,7 +148,9 @@ class GameCli extends EventEmitter {
 
     #compile(text) {
         const tokens = GameCliParser.tokens(text);
-        return this.#compileTokens(tokens);
+        const compiled = this.#compileTokens(tokens);
+        if (!compiled.help && !compiled.cache && !compiled.query) compiled.request = text.trim();
+        return compiled;
     }
 
     #compileTokens(tokens) {
@@ -224,6 +227,7 @@ class GameCli extends EventEmitter {
         const items = result.items.length ? result.items.join(', ') : '<empty>';
         return `${title}\n{ ${items} }`;
     }
+
 }
 
 module.exports = GameCli;

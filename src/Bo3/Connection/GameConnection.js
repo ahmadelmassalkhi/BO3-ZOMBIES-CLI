@@ -157,7 +157,7 @@ class GameConnection extends EventEmitter {
         if (queueState) {
             this.pendingState = queueState;
             this.#trackCachedQuery([request], target, filter, queueState);
-            return GameConnection.#queuedResult(queueState, this.cache(), 'query');
+            return GameConnection.#queuedResult(queueState, this.cache(), [request], 'query');
         }
 
         this.pendingState = null;
@@ -191,15 +191,18 @@ class GameConnection extends EventEmitter {
         const packets = this.packetQueue.clearCached(error, (packet) => {
             return entries.some((entry) => entry.packets && entry.packets.includes(packet));
         });
-        const packetRequests = packets.map((packet) => this.#requestText(packet.payload));
         const queryRequests = this.#clearCachedQueries(entries);
+        const commandRequests = entries
+            .filter((entry) => entry.kind === 'command')
+            .flatMap((entry) => entry.requests);
         this.#removeClearedEntries(entries);
         if (!this.cachedRequests.length) this.#resetCacheState();
         const snapshot = this.cache();
 
         return {
-            cleared: packetRequests.length + queryRequests.length,
-            requests: packetRequests.concat(queryRequests),
+            cleared: commandRequests.length + queryRequests.length,
+            mode,
+            requests: commandRequests.concat(queryRequests),
             active: snapshot.active,
             activeRequests: snapshot.activeRequests,
         };
@@ -243,13 +246,14 @@ class GameConnection extends EventEmitter {
      * Queues one payload and resolves only after every packet is ACKed.
      *
      * @param {string|Array<unknown>|object} payload Payload accepted by GameConnectionPacketProtocol.
+     * @param {string[]} [requestTexts] Human CLI requests represented by this payload.
      * @returns {Promise<object>} ACK result for one packet, or aggregate result for split packets.
      */
-    async schedulePayload(payload) {
+    async schedulePayload(payload, requestTexts = undefined) {
         this.#startWorker();
 
         const packets = this.packetProtocol.createMany(payload);
-        const requests = packets.map((packet) => this.#requestText(packet.payload));
+        const requests = this.#requests(requestTexts, packets);
         const queueState = (this.queryActive || this.packetQueue.length || this.cachedRequests.length)
             ? this.#pendingQueueState()
             : await this.#queueState();
@@ -258,7 +262,7 @@ class GameConnection extends EventEmitter {
         if (queueState) {
             this.pendingState = queueState;
             this.#trackCachedCommands(requests, delivery, queueState, packets);
-            return GameConnection.#queuedResult(queueState, this.cache(), 'command');
+            return GameConnection.#queuedResult(queueState, this.cache(), requests, 'command');
         }
 
         this.pendingState = null;
@@ -268,7 +272,7 @@ class GameConnection extends EventEmitter {
         const paused = { reason: 'paused', map: quickDelivery.map || '', detail: 'Live match detected, but gameplay is not accepting commands yet.' };
         this.pendingState = paused;
         this.#trackCachedCommands(requests, delivery, paused, packets);
-        return GameConnection.#queuedResult(paused, this.cache(), 'command');
+        return GameConnection.#queuedResult(paused, this.cache(), requests, 'command');
     }
 
     #enqueuePackets(packets) {
@@ -420,6 +424,15 @@ class GameConnection extends EventEmitter {
         return String(payload || '').split('|').filter(Boolean).join(' ');
     }
 
+    #requests(requestTexts, packets) {
+        if (requestTexts === undefined) return packets.map((packet) => this.#requestText(packet.payload));
+        if (!Array.isArray(requestTexts) || !requestTexts.every((request) => typeof request === 'string' && request.trim())) {
+            throw new TypeError('[BO3 CONNECTION] request texts must be non-empty strings.');
+        }
+
+        return requestTexts.map((request) => request.trim());
+    }
+
     #getRequestText(target, filter) {
         return ['get', target, filter].filter(Boolean).join(' ');
     }
@@ -470,7 +483,7 @@ class GameConnection extends EventEmitter {
         }
     }
 
-    static #queuedResult(state, cache, kind) {
+    static #queuedResult(state, cache, addedRequests, kind) {
         return {
             queued: true,
             kind,
@@ -479,6 +492,7 @@ class GameConnection extends EventEmitter {
             detail: state.detail,
             activeRequests: cache.activeRequests,
             requests: cache.requests,
+            addedRequests,
             reports: [],
         };
     }

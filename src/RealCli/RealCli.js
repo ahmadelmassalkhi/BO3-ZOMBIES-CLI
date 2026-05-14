@@ -134,6 +134,7 @@ class RealCli {
         if (queuedBehindCommand) {
             this.#writeShell(shell, renderer, GameCliResponse.notice({
                 type: 'commandQueued',
+                addedRequests: [text],
                 ...this.#cacheSnapshot(),
             }));
         }
