@@ -26,8 +26,7 @@ class RealCliRenderer {
         return String(text).split('\n').map((line) => {
             if (line.startsWith('[BO3 ZM CLI]')) return line.replace('[BO3 ZM CLI]', Ansi.yellow('[BO3 ZM CLI]'));
 
-            const itemLine = line.match(/^  - (.+)$/);
-            if (itemLine) return `  ${Ansi.gray('-')} ${Ansi.cyan(itemLine[1])}`;
+            if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
 
             const commandLine = line.match(/^  ([a-z]+)\s{2,}(.*)$/);
             if (commandLine) return `  ${Ansi.blue(commandLine[1].padEnd(8))} ${commandLine[2]}`;
@@ -43,6 +42,15 @@ class RealCliRenderer {
 
             return line;
         }).join('\n');
+    }
+
+    static #queryItems(line) {
+        const items = line.slice(2, -2).split(', ');
+        return [
+            Ansi.gray('{ '),
+            items.map((item) => Ansi.green(item)).join(Ansi.gray(', ')),
+            Ansi.gray(' }'),
+        ].join('');
     }
 }
 

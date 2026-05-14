@@ -161,8 +161,8 @@ class GameCli {
 
     static #queryText(result) {
         const title = `[BO3 ZM CLI] ${result.target}${result.filter ? ` ${result.filter}` : ''}:`;
-        if (!result.items.length) return `${title}\n  - <empty>`;
-        return [title, ...result.items.map((item) => `  - ${item}`)].join('\n');
+        const items = result.items.length ? result.items.join(', ') : '<empty>';
+        return `${title}\n{ ${items} }`;
     }
 }
 
