@@ -3,7 +3,13 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandPackAPunch extends GameCliCommand {
     constructor() {
-        super('pap', 'pap [default|all]', 'Pack-a-Punches the held weapon or all weapons.');
+        super('pap', [
+            'pap',
+            'pap default',
+            'pap all',
+        ], 'Pack-a-Punches the held weapon or all weapons.', [
+            'pap defaults to pap default.',
+        ]);
     }
 
     events(bo3, args) {

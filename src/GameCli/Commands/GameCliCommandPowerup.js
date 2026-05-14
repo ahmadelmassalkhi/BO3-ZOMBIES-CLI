@@ -3,7 +3,14 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandPowerup extends GameCliCommand {
     constructor() {
-        super('powerup', 'powerup [powerup]', 'Gives a powerup.');
+        super('powerup', [
+            'powerup',
+            'powerup <powerup>',
+        ], 'Gives a powerup.', [
+            'Use get powerups to list valid powerup names.',
+            'powerup defaults to random.',
+            'powerup does not take give or take.',
+        ]);
     }
 
     events(bo3, args) {

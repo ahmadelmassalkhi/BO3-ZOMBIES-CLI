@@ -168,7 +168,7 @@ class RealCli {
 
         if (command !== 'clear' && command !== 'cls') {
             if (command.startsWith('clear ') || command.startsWith('cls ')) {
-                this.#writeShell(shell, renderer, GameCliResponse.failure(new TypeError('clear usage: clear. Run: bo3-zm-cli clear help.')));
+                this.#writeShell(shell, renderer, GameCliResponse.failure(new TypeError('clear usage: clear. Run: clear help.')));
                 return true;
             }
 
@@ -206,7 +206,7 @@ class RealCli {
             return true;
         }
 
-        this.#writeShell(shell, renderer, GameCliResponse.failure(new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: bo3-zm-cli cache help.')));
+        this.#writeShell(shell, renderer, GameCliResponse.failure(new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: cache help.')));
         return true;
     }
 
@@ -398,7 +398,7 @@ class RealCli {
             return { mode: 'last', count };
         }
 
-        throw new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: bo3-zm-cli cache help.');
+        throw new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: cache help.');
     }
 
     #routeLogsToStderr() {

@@ -3,7 +3,12 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandRound extends GameCliCommand {
     constructor() {
-        super('round', 'round <+count|-count>', 'Adds or removes rounds.');
+        super('round', [
+            'round +<count>',
+            'round -<count>',
+        ], 'Adds or removes rounds.', [
+            'count must be a non-zero integer.',
+        ]);
     }
 
     events(bo3, args) {

@@ -3,7 +3,18 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandPerk extends GameCliCommand {
     constructor() {
-        super('perk', 'perk [give [perk]|take [perk]]', 'Gives or takes perks.');
+        super('perk', [
+            'perk',
+            'perk give',
+            'perk give <perk>',
+            'perk take',
+            'perk take <perk>',
+        ], 'Gives or takes perks.', [
+            'Use get perks to list valid perk names.',
+            'perk defaults to perk give.',
+            'perk give defaults to random.',
+            'perk take defaults to last.',
+        ]);
     }
 
     events(bo3, args) {

@@ -3,7 +3,14 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandZombie extends GameCliCommand {
     constructor() {
-        super('zombie', 'zombie [count] [name]', 'Spawns zombies.');
+        super('zombie', [
+            'zombie',
+            'zombie <count>',
+            'zombie <count> <name>',
+        ], 'Spawns zombies.', [
+            'zombie defaults to zombie 1 Zombie.',
+            'count must be the first argument when provided.',
+        ]);
     }
 
     events(bo3, args) {

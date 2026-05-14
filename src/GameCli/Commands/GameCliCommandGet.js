@@ -2,7 +2,15 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandGet extends GameCliCommand {
     constructor() {
-        super('get', 'get <weapons|perks|powerups> [wonderweapons]', 'Reads live map data.');
+        super('get', [
+            'get weapons',
+            'get weapons wonderweapons',
+            'get perks',
+            'get powerups',
+        ], 'Reads live map data.', [
+            'Results are read from the active map.',
+            'get weapons wonderweapons filters weapons to wonder weapons.',
+        ]);
     }
 
     get(args) {
@@ -21,13 +29,13 @@ class GameCliCommandGet extends GameCliCommand {
 
     static #filter(target, args) {
         if (!args.length) return '';
-        if (args.length > 1) throw new TypeError('get usage: get <weapons|perks|powerups> [wonderweapons]. Run: bo3-zm-cli get help.');
+        if (args.length > 1) throw new TypeError('get usage: get <weapons|perks|powerups> [wonderweapons]. Run: get help.');
 
         const filter = args[0].toLowerCase();
-        if (target !== 'weapons') throw new TypeError(`get ${target} does not accept a filter. Run: bo3-zm-cli get help.`);
+        if (target !== 'weapons') throw new TypeError(`get ${target} does not accept a filter. Run: get help.`);
         if (filter === 'wonderweapons') return 'wonderweapons';
 
-        throw new TypeError('get weapons filter must be wonderweapons. Run: bo3-zm-cli get help.');
+        throw new TypeError('get weapons filter must be wonderweapons. Run: get help.');
     }
 }
 

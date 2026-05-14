@@ -3,7 +3,12 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandPoints extends GameCliCommand {
     constructor() {
-        super('points', 'points <+amount|-amount>', 'Adds or removes points.');
+        super('points', [
+            'points +<amount>',
+            'points -<amount>',
+        ], 'Adds or removes points.', [
+            'amount must be a non-zero integer.',
+        ]);
     }
 
     events(bo3, args) {

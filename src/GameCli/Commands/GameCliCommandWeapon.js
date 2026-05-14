@@ -3,7 +3,19 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandWeapon extends GameCliCommand {
     constructor() {
-        super('weapon', 'weapon [give [weapon]|take [default|all]]', 'Gives or takes weapons.');
+        super('weapon', [
+            'weapon',
+            'weapon give',
+            'weapon give <weapon>',
+            'weapon take',
+            'weapon take default',
+            'weapon take all',
+        ], 'Gives or takes weapons.', [
+            'Use get weapons to list valid weapon names.',
+            'weapon defaults to weapon give.',
+            'weapon give defaults to random.',
+            'weapon take defaults to default.',
+        ]);
     }
 
     events(bo3, args) {

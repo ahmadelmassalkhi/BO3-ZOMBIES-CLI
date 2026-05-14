@@ -43,9 +43,7 @@ class RealCliRenderer {
             const commandLine = line.match(/^  ([a-z]+)\s{2,}(.*)$/);
             if (commandLine) return `  ${Ansi.cyan(commandLine[1].padEnd(8))} ${commandLine[2]}`;
 
-            if (line.trim().startsWith('bo3-zm-cli')) {
-                return RealCliRenderer.#commandUsage(line);
-            }
+            if (RealCliRenderer.#isUsageLine(line)) return RealCliRenderer.#commandUsage(line);
 
             return line;
         }).join('\n');
@@ -111,12 +109,12 @@ class RealCliRenderer {
         const indent = line.match(/^\s*/)[0];
         let commandColored = false;
         const tokens = line.trim().split(/\s+/).map((token) => {
-            if (token === 'bo3-zm-cli') return Ansi.cyan(token);
             if (token.startsWith('--')) return Ansi.yellow(token);
             if (token.startsWith('<') && token.endsWith('>')) {
                 if (!commandColored) commandColored = true;
                 return Ansi.gray(token);
             }
+            if (/^[+-]<[^>]+>$/.test(token)) return Ansi.gray(token);
             if (token.startsWith('[') && token.endsWith(']')) return Ansi.gray(token);
             if (/^[a-z]+$/.test(token) && !commandColored) {
                 commandColored = true;
@@ -128,10 +126,28 @@ class RealCliRenderer {
         return `${indent}${tokens.join(' ')}`;
     }
 
+    static #isUsageLine(line) {
+        return /^  (?:[a-z]+|--[a-z-]+|<[^>]+>)/.test(line);
+    }
+
     static #note(line) {
         const prefix = line.match(/^\s*-\s*/)[0];
         const content = line.slice(prefix.length);
-        const commands = ['cache clear last', 'cache clear all', 'cache clear', 'cache show', 'cache'];
+        const commands = [
+            'get weapons wonderweapons',
+            'cache clear last',
+            'cache clear all',
+            'get powerups',
+            'weapon give',
+            'weapon take',
+            'cache clear',
+            'get weapons',
+            'get perks',
+            'perk give',
+            'perk take',
+            'cache show',
+            'cache',
+        ];
         let index = 0;
         let output = Ansi.gray(prefix);
         let gray = '';

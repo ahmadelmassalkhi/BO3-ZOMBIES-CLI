@@ -195,13 +195,13 @@ class GameCli extends EventEmitter {
             if (!Number.isInteger(count) || count < 1 || String(count) !== tokens[3]) throw new TypeError('cache clear last count must be a positive integer.');
             return { cache: { action: 'clear', mode: 'last', count } };
         }
-        throw new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: bo3-zm-cli cache help.');
+        throw new TypeError('cache usage: cache [show] | cache clear [all|last [count]]. Run: cache help.');
     }
 
     #compileClear(tokens) {
         if (tokens.length === 2 && tokens[1].toLowerCase() === 'help') return { help: this.#help('clear') };
         if (tokens.length === 1) return { help: this.#help('clear') };
-        throw new TypeError('clear usage: clear. Run: bo3-zm-cli clear help.');
+        throw new TypeError('clear usage: clear. Run: clear help.');
     }
 
     #help(commandName) {

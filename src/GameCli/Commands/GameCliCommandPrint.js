@@ -3,7 +3,11 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandPrint extends GameCliCommand {
     constructor() {
-        super('print', 'print <message>', 'Prints one BO3 message.');
+        super('print', [
+            'print <message>',
+        ], 'Prints one BO3 message.', [
+            'Quote messages that contain spaces.',
+        ]);
     }
 
     events(bo3, args) {

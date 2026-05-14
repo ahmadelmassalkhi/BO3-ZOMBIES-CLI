@@ -2,12 +2,9 @@ class GameCliHelp {
     static general(registry) {
         return [
             '[CLI] Usage:',
-            '  bo3-zm-cli help',
-            '  bo3-zm-cli <command> help',
-            '  bo3-zm-cli <command> [args]',
-            '  bo3-zm-cli --json <command> [args]',
-            '  bo3-zm-cli --plain <command> [args]',
-            '  bo3-zm-cli --dry-run --json <command> [args]',
+            '  help',
+            '  <command> help',
+            '  <command> [args]',
             '',
             '[CLI] CLI commands:',
             '  get help',
@@ -23,50 +20,55 @@ class GameCliHelp {
     }
 
     static command(command) {
-        return [
-            `[CLI] ${command.name} usage:`,
-            `  bo3-zm-cli ${command.usage}`,
-            `  bo3-zm-cli --json ${command.usage}`,
-            `  bo3-zm-cli --dry-run --json ${command.usage}`,
-        ].join('\n');
+        return GameCliHelp.#page(`${command.name} usage`, command.usage, command.notes);
     }
 
     static post() {
-        return [
-            '[CLI] post usage:',
-            '  bo3-zm-cli post <command> [args]',
-            '  bo3-zm-cli post points +100',
-            '  bo3-zm-cli post weapon give ray_gun',
-        ].join('\n');
+        return GameCliHelp.#page('post usage', [
+            'post <command> [args]',
+            'post points +100',
+            'post weapon give ray_gun',
+        ], [
+            'post is optional; gameplay commands run as post by default.',
+            'post cannot run get.',
+        ]);
     }
 
     static cache() {
-        return [
-            '[CLI] cache usage:',
-            '  bo3-zm-cli cache',
-            '  bo3-zm-cli cache show',
-            '  bo3-zm-cli cache clear',
-            '  bo3-zm-cli cache clear all',
-            '  bo3-zm-cli cache clear last',
-            '  bo3-zm-cli cache clear last <count>',
-            '',
-            '[CLI] Notes:',
-            '  - cache defaults to cache show.',
-            '  - cache clear defaults to cache clear all.',
-            '  - cache clear last defaults to one pending command.',
-            '  - The first cached command may already be sent to BO3 and waiting for ACK.',
-            '  - Active commands are already sent and cannot be cleared.',
-            '  - Queued commands are pending and can be cleared.',
-        ].join('\n');
+        return GameCliHelp.#page('cache usage', [
+            'cache',
+            'cache show',
+            'cache clear',
+            'cache clear all',
+            'cache clear last',
+            'cache clear last <count>',
+        ], [
+            'cache defaults to cache show.',
+            'cache clear defaults to cache clear all.',
+            'cache clear last defaults to one pending command.',
+            'The active command may already be sent to BO3 and waiting for ACK.',
+            'Active commands cannot be cleared.',
+            'Queued commands can be cleared.',
+        ]);
     }
 
     static clear() {
-        return [
-            '[CLI] clear usage:',
-            '  clear',
-            '',
-            '[CLI] clear is interactive-only and clears the visible CLI log.',
-        ].join('\n');
+        return GameCliHelp.#page('clear usage', [
+            'clear',
+        ], [
+            'clear is interactive-only and clears the visible CLI log.',
+        ]);
+    }
+
+    static #page(title, usageLines, notes = []) {
+        const lines = [
+            `[CLI] ${title}:`,
+            ...usageLines.map((line) => `  ${line}`),
+        ];
+
+        if (notes.length) lines.push('[CLI] Notes:', ...notes.map((note) => `  - ${note}`));
+
+        return lines.join('\n');
     }
 }
 
