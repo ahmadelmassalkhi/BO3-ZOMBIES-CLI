@@ -1,8 +1,8 @@
 const DEFAULT_REQUEST_DVAR = 'stoe_get';
-const DEFAULT_MARKER = ' STOE_GET:';
+const DEFAULT_MARKERS = Object.freeze(['~G:', ' STOE_GET:']);
 const DEFAULT_TIMEOUT_MS = 8000;
-const DEFAULT_POLL_MS = 75;
-const MAX_REQUEST_ID_LEN = 12;
+const DEFAULT_POLL_MS = 10;
+const MAX_REQUEST_ID_LEN = 8;
 
 class GameConnectionGetQuery {
     /**
@@ -10,7 +10,7 @@ class GameConnectionGetQuery {
      * @param {object} options.packetWriter Writer exposing write().
      * @param {object} options.statusProbe Probe exposing read().
      * @param {string} [options.requestDvar='stoe_get'] Query request DVAR.
-     * @param {string} [options.responseMarker=' STOE_GET:'] A2S response marker.
+     * @param {string|string[]} [options.responseMarker] A2S response marker override.
      * @param {number} [options.timeoutMs=8000] Query timeout.
      * @param {number} [options.pollMs=75] Poll delay.
      */
@@ -21,7 +21,7 @@ class GameConnectionGetQuery {
         this.packetWriter = options.packetWriter;
         this.statusProbe = options.statusProbe;
         this.requestDvar = String(options.requestDvar || process.env.BO3_GET_DVAR || DEFAULT_REQUEST_DVAR);
-        this.responseMarker = String(options.responseMarker || process.env.BO3_GET_MARKER || DEFAULT_MARKER);
+        this.responseMarkers = this.#markers(options.responseMarker || process.env.BO3_GET_MARKER);
         this.timeoutMs = this.#int(options.timeoutMs ?? process.env.BO3_GET_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
         this.pollMs = this.#int(options.pollMs ?? process.env.BO3_GET_POLL_MS, DEFAULT_POLL_MS);
         this.sequence = 0;
@@ -65,23 +65,37 @@ class GameConnectionGetQuery {
     }
 
     #chunk(status, id) {
-        const name = status && status.info && status.info.name ? status.info.name : '';
-        const markerIndex = name.indexOf(this.responseMarker);
-        if (markerIndex === -1) return null;
+        const markedText = this.#markedText(status);
+        if (!markedText) return null;
 
-        const parts = name.slice(markerIndex + this.responseMarker.length).split('|');
+        const parts = markedText.split('|');
         if (parts.length < 5 || parts[0] !== id) return null;
 
-        const part = Number.parseInt(parts[2], 10);
-        const total = Number.parseInt(parts[3], 10);
+        const compact = parts[1] === '1' || parts[1] === '0';
+        const part = Number.parseInt(parts[2], compact ? 36 : 10);
+        const total = Number.parseInt(parts[3], compact ? 36 : 10);
         if (!Number.isSafeInteger(part) || !Number.isSafeInteger(total) || part < 1 || total < 1 || part > total) return null;
 
         return {
-            status: parts[1],
+            status: compact ? (parts[1] === '1' ? 'ok' : 'fail') : parts[1],
             part,
             total,
             payload: parts.slice(4).join('|'),
         };
+    }
+
+    #markedText(status) {
+        const name = status && status.info && status.info.name ? status.info.name : '';
+        const raw = status && status.raw ? status.raw : '';
+
+        for (const text of [name, raw]) {
+            for (const marker of this.responseMarkers) {
+                const markerIndex = text.indexOf(marker);
+                if (markerIndex !== -1) return text.slice(markerIndex + marker.length);
+            }
+        }
+
+        return '';
     }
 
     #result(target, filter, status, chunks, total) {
@@ -106,7 +120,7 @@ class GameConnectionGetQuery {
 
     #requestId() {
         this.sequence = (this.sequence + 1) % 1296;
-        const time = Date.now().toString(36).slice(-7);
+        const time = Date.now().toString(36).slice(-5);
         const sequence = this.sequence.toString(36).padStart(2, '0');
         return `q${time}${sequence}`.slice(0, MAX_REQUEST_ID_LEN);
     }
@@ -125,6 +139,19 @@ class GameConnectionGetQuery {
     #int(value, fallback) {
         const parsed = Number.parseInt(value, 10);
         return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+    }
+
+    #markers(value) {
+        const markers = []
+            .concat(value || [])
+            .map((marker) => String(marker || '').trim())
+            .filter(Boolean);
+
+        for (const marker of DEFAULT_MARKERS) {
+            if (!markers.includes(marker)) markers.push(marker);
+        }
+
+        return Object.freeze(markers);
     }
 
     static #delay(ms) {
