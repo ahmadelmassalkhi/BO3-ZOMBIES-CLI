@@ -1,5 +1,5 @@
-const Bo3EventRound = require('../../Bo3/Bo3Events/Bo3EventRound');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventRound = require('../../../Bo3/Bo3Events/Bo3EventRound');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandRound extends GameCliCommand {
     constructor() {

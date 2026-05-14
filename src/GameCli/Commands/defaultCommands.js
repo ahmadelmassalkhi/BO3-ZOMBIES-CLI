@@ -4,7 +4,7 @@ const GameCliCommand = require('./GameCliCommand');
 let cachedCommands = null;
 
 /**
- * @returns {ReadonlyArray<GameCliCommand>} Discovered gameplay commands.
+ * @returns {ReadonlyArray<GameCliCommand>} Discovered GameCli commands.
  */
 module.exports = () => {
     if (!cachedCommands) {

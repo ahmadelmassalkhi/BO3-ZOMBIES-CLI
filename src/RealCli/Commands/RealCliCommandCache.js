@@ -1,4 +1,4 @@
-const GameCliCache = require('../../GameCli/GameCliCache');
+const GameCliCommandCache = require('../../GameCli/Commands/Core/GameCliCommandCache');
 const GameCliResponse = require('../../GameCli/GameCliResponse');
 const RealCliCommand = require('./RealCliCommand');
 const RealCliCommandServices = require('./RealCliCommandServices');
@@ -29,7 +29,7 @@ class RealCliCommandCache extends RealCliCommand {
         }
 
         try {
-            const cache = GameCliCache.parse(tokens);
+            const cache = GameCliCommandCache.parse(tokens);
             return cache.action === 'clear'
                 ? GameCliResponse.cacheCleared(this.#services.cache.clear(cache.mode, cache.count))
                 : GameCliResponse.cacheShown(this.#services.cache.snapshot());

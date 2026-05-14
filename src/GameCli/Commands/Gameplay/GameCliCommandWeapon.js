@@ -1,5 +1,5 @@
-const Bo3EventWeapon = require('../../Bo3/Bo3Events/Bo3EventWeapon');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventWeapon = require('../../../Bo3/Bo3Events/Bo3EventWeapon');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandWeapon extends GameCliCommand {
     constructor() {

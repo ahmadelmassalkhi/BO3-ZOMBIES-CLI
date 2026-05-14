@@ -1,5 +1,5 @@
-const Bo3EventZombie = require('../../Bo3/Bo3Events/Bo3EventZombie');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventZombie = require('../../../Bo3/Bo3Events/Bo3EventZombie');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandZombie extends GameCliCommand {
     constructor() {

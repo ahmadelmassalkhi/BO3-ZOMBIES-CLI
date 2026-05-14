@@ -1,5 +1,5 @@
-const Bo3EventPowerup = require('../../Bo3/Bo3Events/Bo3EventPowerup');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventPowerup = require('../../../Bo3/Bo3Events/Bo3EventPowerup');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandPowerup extends GameCliCommand {
     constructor() {

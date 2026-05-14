@@ -2,12 +2,12 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Loads command classes from a folder by filename convention.
+ * Loads command classes from a folder tree by filename convention.
  */
 class CommandDiscovery {
     /**
      * @param {object} options Discovery options.
-     * @param {string} options.directory Directory containing command files.
+     * @param {string} options.directory Root directory containing command files.
      * @param {string} options.prefix Required filename prefix.
      * @param {Function} options.baseClass Required superclass.
      * @param {*[]} [options.args=[]] Constructor args passed to each command.
@@ -26,7 +26,7 @@ class CommandDiscovery {
 
     /**
      * @param {object} options Discovery options.
-     * @param {string} options.directory Directory containing command files.
+     * @param {string} options.directory Root directory containing command files.
      * @param {string} options.prefix Required filename prefix.
      * @param {Function} options.baseClass Required superclass.
      * @param {string[]} [options.exclude=[]] Filenames to ignore.
@@ -40,20 +40,29 @@ class CommandDiscovery {
             throw new TypeError('CommandDiscovery.exclude must be string[].');
         }
 
-        const classes = fs.readdirSync(directory)
+        const classes = CommandDiscovery.#files(directory)
             .filter((file) => CommandDiscovery.#isCommandFile(file, prefix, exclude))
             .sort((left, right) => left.localeCompare(right))
-            .map((file) => CommandDiscovery.#loadClass(path.join(directory, file), baseClass));
+            .map((file) => CommandDiscovery.#loadClass(file, baseClass));
 
         if (!classes.length) throw new Error(`No ${prefix} files were found in ${directory}.`);
         return Object.freeze(classes);
     }
 
     static #isCommandFile(file, prefix, exclude) {
-        return file.endsWith('.js')
-            && file.startsWith(prefix)
-            && file !== `${prefix}.js`
-            && !exclude.includes(file);
+        const name = path.basename(file);
+        return name.endsWith('.js')
+            && name.startsWith(prefix)
+            && name !== `${prefix}.js`
+            && !exclude.includes(name);
+    }
+
+    static #files(directory) {
+        return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+            const fullPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) return CommandDiscovery.#files(fullPath);
+            return entry.isFile() ? [fullPath] : [];
+        });
     }
 
     static #loadClass(file, baseClass) {

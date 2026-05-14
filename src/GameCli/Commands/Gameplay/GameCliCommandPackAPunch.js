@@ -1,5 +1,5 @@
-const Bo3EventPackAPunch = require('../../Bo3/Bo3Events/Bo3EventPackAPunch');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventPackAPunch = require('../../../Bo3/Bo3Events/Bo3EventPackAPunch');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandPackAPunch extends GameCliCommand {
     constructor() {

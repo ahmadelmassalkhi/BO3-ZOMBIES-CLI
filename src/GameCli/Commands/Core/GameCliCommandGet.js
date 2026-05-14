@@ -1,4 +1,4 @@
-const GameCliCommand = require('./GameCliCommand');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandGet extends GameCliCommand {
     constructor() {
@@ -10,7 +10,7 @@ class GameCliCommandGet extends GameCliCommand {
         ], 'Reads live map data.', [
             'Results are read from the active map.',
             '`get weapons wonderweapons` filters weapons to wonder weapons.',
-        ]);
+        ], 'core');
     }
 
     get(args) {

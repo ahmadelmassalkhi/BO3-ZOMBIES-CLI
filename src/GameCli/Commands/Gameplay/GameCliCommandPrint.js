@@ -1,5 +1,5 @@
-const Bo3EventPrint = require('../../Bo3/Bo3Events/Bo3EventPrint');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventPrint = require('../../../Bo3/Bo3Events/Bo3EventPrint');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandPrint extends GameCliCommand {
     constructor() {

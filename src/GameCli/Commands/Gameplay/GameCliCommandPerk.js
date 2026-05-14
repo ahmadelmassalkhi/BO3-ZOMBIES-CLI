@@ -1,5 +1,5 @@
-const Bo3EventPerk = require('../../Bo3/Bo3Events/Bo3EventPerk');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventPerk = require('../../../Bo3/Bo3Events/Bo3EventPerk');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandPerk extends GameCliCommand {
     constructor() {

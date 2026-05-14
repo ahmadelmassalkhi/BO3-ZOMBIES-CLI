@@ -1,5 +1,5 @@
-const Bo3EventPoints = require('../../Bo3/Bo3Events/Bo3EventPoints');
-const GameCliCommand = require('./GameCliCommand');
+const Bo3EventPoints = require('../../../Bo3/Bo3Events/Bo3EventPoints');
+const GameCliCommand = require('../GameCliCommand');
 
 class GameCliCommandPoints extends GameCliCommand {
     constructor() {

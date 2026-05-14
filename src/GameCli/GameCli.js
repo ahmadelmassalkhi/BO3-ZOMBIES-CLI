@@ -1,6 +1,5 @@
 const EventEmitter = require('events');
 const Bo3 = require('../Bo3/Bo3');
-const GameCliCache = require('./GameCliCache');
 const GameCliCommandRegistry = require('./GameCliCommandRegistry');
 const GameCliHelp = require('./GameCliHelp');
 const GameCliParser = require('./GameCliParser');
@@ -158,13 +157,19 @@ class GameCli extends EventEmitter {
         const commandName = tokens[0].toLowerCase();
 
         if (commandName === 'help') return { help: this.#help(tokens[1]) };
-        if (commandName === 'cache') return this.#compileCache(tokens);
         if (commandName === 'clear') return this.#compileClear(tokens);
         if (commandName === 'post' && tokens.length === 2 && tokens[1].toLowerCase() === 'help') return { help: this.#help('post') };
         if (commandName === 'post') return this.#compilePost(tokens.slice(1));
         if (tokens[tokens.length - 1].toLowerCase() === 'help') return { help: this.#help(commandName) };
 
         const command = this.registry.get(commandName);
+        if (typeof command.cache === 'function') {
+            return {
+                name: command.name,
+                cache: command.cache(tokens.slice(1)),
+            };
+        }
+
         if (typeof command.get === 'function') {
             return {
                 name: command.name,
@@ -180,13 +185,11 @@ class GameCli extends EventEmitter {
 
     #compilePost(tokens) {
         if (!tokens.length) throw new TypeError('post requires a command.');
-        if (tokens[0].toLowerCase() === 'get') throw new TypeError('post cannot run get. Use get directly.');
-        return this.#compileTokens(tokens);
-    }
+        if (['get', 'cache', 'clear', 'help', 'post'].includes(tokens[0].toLowerCase())) {
+            throw new TypeError(`post cannot run ${tokens[0].toLowerCase()}. Use ${tokens[0].toLowerCase()} directly.`);
+        }
 
-    #compileCache(tokens) {
-        if (tokens.length === 2 && tokens[1].toLowerCase() === 'help') return { help: this.#help('cache') };
-        return { cache: GameCliCache.parse(tokens.map((token) => token.toLowerCase())) };
+        return this.#compileTokens(tokens);
     }
 
     #compileClear(tokens) {
@@ -197,7 +200,6 @@ class GameCli extends EventEmitter {
 
     #help(commandName) {
         if (String(commandName || '').toLowerCase() === 'post') return GameCliResponse.help(GameCliHelp.post());
-        if (String(commandName || '').toLowerCase() === 'cache') return GameCliResponse.help(GameCliHelp.cache());
         if (String(commandName || '').toLowerCase() === 'clear') return GameCliResponse.help(GameCliHelp.clear());
 
         const text = commandName

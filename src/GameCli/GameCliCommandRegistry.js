@@ -3,7 +3,7 @@ const defaultCommands = require('./Commands/defaultCommands');
 
 class GameCliCommandRegistry {
     /**
-     * @param {GameCliCommand[]} [commands=defaultCommands()] Registered gameplay commands.
+     * @param {GameCliCommand[]} [commands=defaultCommands()] Registered GameCli commands.
      */
     constructor(commands = defaultCommands()) {
         if (!Array.isArray(commands) || !commands.every((command) => command instanceof GameCliCommand)) {

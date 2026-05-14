@@ -19,7 +19,7 @@ class GameCliHelp {
             '',
             '[CLI] Gameplay commands:',
             ...registry.commands
-                .filter((command) => command.name !== 'get')
+                .filter((command) => command.group === 'gameplay')
                 .map((command) => `  ${command.name} help`),
         ].join('\n');
     }
@@ -43,27 +43,6 @@ class GameCliHelp {
         ], [
             '`post` is optional; gameplay commands run as post by default.',
             '`post` cannot run `get`.',
-        ]);
-    }
-
-    /**
-     * @returns {string} Cache command help page.
-     */
-    static cache() {
-        return GameCliHelp.#page('cache usage', [
-            'cache',
-            'cache show',
-            'cache clear',
-            'cache clear all',
-            'cache clear last',
-            'cache clear last <count>',
-        ], [
-            '`cache` defaults to `cache show`.',
-            '`cache clear` defaults to `cache clear all`.',
-            '`cache clear last` defaults to one pending command.',
-            'The active command may already be sent to BO3 and waiting for ACK.',
-            'Active commands cannot be cleared.',
-            'Queued commands can be cleared.',
         ]);
     }
 
