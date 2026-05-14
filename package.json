@@ -26,6 +26,9 @@
   "pkg": {
     "scripts": [
       "src/**/*.js"
+    ],
+    "assets": [
+      "src/Bo3/Connection/Transport/BridgeRuntime/**/*"
     ]
   }
 }
