@@ -507,8 +507,9 @@ class GameConnection extends EventEmitter {
 
     #pendingQueueState() {
         if (this.queryActive) return GameConnection.#busyState('waiting for current command');
+        if (this.pendingState) return this.pendingState;
         if (this.packetQueue.hasActive) return GameConnection.#busyState('waiting for BO3 ACK');
-        return this.pendingState || GameConnection.#busyState();
+        return GameConnection.#busyState();
     }
 
     #canSendPackets() {

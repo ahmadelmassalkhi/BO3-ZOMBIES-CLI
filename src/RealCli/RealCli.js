@@ -107,7 +107,7 @@ class RealCli {
         try {
             if (renderer.output !== 'json') {
                 const mode = options.dryRun ? 'dry-run mode; no BO3 connection will start.' : 'Type help. Ctrl+C cancels. Ctrl+W exits.';
-                console.log(Ansi.yellow('[BO3 ZM CLI]'), mode);
+                console.log(Ansi.yellow('[CLI]'), mode);
             }
 
             if (!options.dryRun) {
@@ -277,7 +277,7 @@ class RealCli {
         try {
             await this.gameCli.stop();
         } catch (error) {
-            console.warn('[BO3 ZM CLI] Shutdown warning:', error && error.message ? error.message : String(error));
+            console.warn('[CLI] Shutdown warning:', error && error.message ? error.message : String(error));
         }
     }
 

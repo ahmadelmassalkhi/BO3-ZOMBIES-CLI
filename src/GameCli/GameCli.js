@@ -223,7 +223,7 @@ class GameCli extends EventEmitter {
     static #queryText(result) {
         const queryName = `${result.target}${result.filter ? ` ${result.filter}` : ''}`;
         const mapName = result.map ? ` on map ${result.map}` : '';
-        const title = `[BO3 ZM CLI] ${queryName}${mapName}:`;
+        const title = `[GET] ${queryName}${mapName}:`;
         const items = result.items.length ? result.items.join(', ') : '<empty>';
         return `${title}\n{ ${items} }`;
     }

@@ -1,7 +1,7 @@
 class GameCliHelp {
     static general(registry) {
         return [
-            '[BO3 ZM CLI] Usage:',
+            '[CLI] Usage:',
             '  bo3-zm-cli help',
             '  bo3-zm-cli <command> help',
             '  bo3-zm-cli <command> [args]',
@@ -9,13 +9,13 @@ class GameCliHelp {
             '  bo3-zm-cli --plain <command> [args]',
             '  bo3-zm-cli --dry-run --json <command> [args]',
             '',
-            '[BO3 ZM CLI] CLI commands:',
+            '[CLI] CLI commands:',
             '  get help',
             '  post help',
             '  cache help',
             '  clear',
             '',
-            '[BO3 ZM CLI] Gameplay commands:',
+            '[CLI] Gameplay commands:',
             ...registry.commands
                 .filter((command) => command.name !== 'get')
                 .map((command) => `  ${command.name} help`),
@@ -24,7 +24,7 @@ class GameCliHelp {
 
     static command(command) {
         return [
-            `[BO3 ZM CLI] ${command.name} usage:`,
+            `[CLI] ${command.name} usage:`,
             `  bo3-zm-cli ${command.usage}`,
             `  bo3-zm-cli --json ${command.usage}`,
             `  bo3-zm-cli --dry-run --json ${command.usage}`,
@@ -33,7 +33,7 @@ class GameCliHelp {
 
     static post() {
         return [
-            '[BO3 ZM CLI] post usage:',
+            '[CLI] post usage:',
             '  bo3-zm-cli post <command> [args]',
             '  bo3-zm-cli post points +100',
             '  bo3-zm-cli post weapon give ray_gun',
@@ -42,7 +42,7 @@ class GameCliHelp {
 
     static cache() {
         return [
-            '[BO3 ZM CLI] cache usage:',
+            '[CLI] cache usage:',
             '  bo3-zm-cli cache',
             '  bo3-zm-cli cache show',
             '  bo3-zm-cli cache clear',
@@ -50,7 +50,7 @@ class GameCliHelp {
             '  bo3-zm-cli cache clear last',
             '  bo3-zm-cli cache clear last <count>',
             '',
-            '[BO3 ZM CLI] Notes:',
+            '[CLI] Notes:',
             '  - cache defaults to cache show.',
             '  - cache clear defaults to cache clear all.',
             '  - cache clear last defaults to one pending command.',
@@ -62,10 +62,10 @@ class GameCliHelp {
 
     static clear() {
         return [
-            '[BO3 ZM CLI] clear usage:',
+            '[CLI] clear usage:',
             '  clear',
             '',
-            '[BO3 ZM CLI] clear is interactive-only and clears the visible CLI log.',
+            '[CLI] clear is interactive-only and clears the visible CLI log.',
         ].join('\n');
     }
 }

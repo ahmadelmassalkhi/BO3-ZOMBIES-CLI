@@ -149,11 +149,11 @@ class GameCliResponse {
         const status = report.status && report.status !== 'ok' ? ` [${String(report.status).toUpperCase()}]` : '';
         const command = report.command ? ` [${String(report.command).toUpperCase()}]` : '';
         const message = report.message ? String(report.message) : '';
-        return `[BO3 REPORT]${status}${command} ${message}`.trim();
+        return `[REPORT]${status}${command} ${message}`.trim();
     }
 
     static #queuedText(data) {
-        return `[BO3 NOTICE] ${GameCliResponse.#waitText(data)}; added { ${GameCliResponse.#addedList(data)} } to cache.`;
+        return `[NOTICE] ${GameCliResponse.#waitText(data)}; command cached. Run cache show.`;
     }
 
     static #noticeText(notice) {
@@ -169,15 +169,15 @@ class GameCliResponse {
             const map = notice.map ? ` on map ${notice.map}` : '';
             const requests = Array.isArray(notice.requests) ? notice.requests : [];
             const prefix = notice.gameplayRecovered ? `live gameplay detected${map}` : 'ACK received';
-            return `[BO3 NOTICE] ${prefix}; sending cache { ${requests.join(', ')} }`;
+            return `[NOTICE] ${prefix}; sending cache { ${requests.join(', ')} }`;
         }
 
         if (notice.type === 'commandQueued') {
-            return `[BO3 NOTICE] CLI busy; added { ${GameCliResponse.#addedList(notice)} } to cache.`;
+            return '[NOTICE] busy; command cached. Run cache show.';
         }
 
         if (notice.type === 'cachedError') {
-            return `[BO3 NOTICE] cache failed: ${notice.message || '<unknown>'}`;
+            return `[NOTICE] cache failed: ${notice.message || '<unknown>'}`;
         }
 
         if (notice.type === 'queryResult') {
@@ -191,48 +191,37 @@ class GameCliResponse {
         const requests = result && Array.isArray(result.requests) ? result.requests : [];
         const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
         if (!requests.length) return activeRequests.length
-            ? `[BO3 NOTICE] no pending cache cleared; active { ${activeRequests.join(', ')} }`
-            : '[BO3 NOTICE] cache empty.';
+            ? `[NOTICE] no pending cache cleared; active { ${activeRequests.join(', ')} }`
+            : '[NOTICE] cache empty.';
 
         const label = result && result.mode === 'last' ? 'cleared last pending cache item.' : 'cleared pending cache.';
-        return activeRequests.length ? `[BO3 NOTICE] ${label} active { ${activeRequests.join(', ')} }` : `[BO3 NOTICE] ${label}`;
+        return activeRequests.length ? `[NOTICE] ${label} active { ${activeRequests.join(', ')} }` : `[NOTICE] ${label}`;
     }
 
     static #cacheShownText(result) {
         const requests = result && Array.isArray(result.requests) ? result.requests : [];
         const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
-        if (!requests.length && !activeRequests.length) return '[BO3 NOTICE] cache empty.';
+        if (!requests.length && !activeRequests.length) return '[NOTICE] cache empty.';
 
         const items = activeRequests.concat(requests).map((request, index, all) => {
             const comma = index + 1 < all.length ? ',' : '';
             return `  ${request}${comma}`;
         });
-        return ['[BO3 NOTICE] cache:', '{', ...items, '}'].join('\n');
-    }
-
-    static #addedList(data) {
-        const requests = data && Array.isArray(data.addedRequests) ? data.addedRequests : [];
-        return requests.join(', ');
-    }
-
-    static #requestList(data) {
-        const activeRequests = data && Array.isArray(data.activeRequests) ? data.activeRequests : [];
-        const requests = data && Array.isArray(data.requests) ? data.requests : [];
-        return activeRequests.concat(requests).join(', ');
+        return ['[NOTICE] cache:', '{', ...items, '}'].join('\n');
     }
 
     static #waitText(data) {
         if (!data) return 'waiting';
-        if (data.reason === 'busy') return data.detail || 'waiting for current command';
+        if (data.reason === 'busy') return 'busy';
         if (data.reason === 'paused') return data.map ? `paused on map ${data.map}` : 'paused';
-        if (data.reason === 'inactive') return 'waiting for live gameplay';
+        if (data.reason === 'inactive') return 'no live match';
         return data.detail || 'waiting';
     }
 
     static #queryText(result) {
         const queryName = `${result.target}${result.filter ? ` ${result.filter}` : ''}`;
         const mapName = result.map ? ` on map ${result.map}` : '';
-        const title = `[BO3 ZM CLI] ${queryName}${mapName}:`;
+        const title = `[GET] ${queryName}${mapName}:`;
         const items = Array.isArray(result.items) && result.items.length ? result.items.join(', ') : '<empty>';
         return `${title}\n{ ${items} }`;
     }

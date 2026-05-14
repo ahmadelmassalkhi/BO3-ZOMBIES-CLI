@@ -24,9 +24,9 @@ class RealCliRenderer {
 
     #ansi(text, data = null) {
         return String(text).split('\n').map((line) => {
-            if (line.startsWith('[BO3 ZM CLI]')) return RealCliRenderer.#title(line);
-            if (line.startsWith('[BO3 NOTICE]')) return RealCliRenderer.#notice(line, data);
-            if (line.startsWith('[BO3 REPORT]')) return RealCliRenderer.#report(line);
+            if (line.startsWith('[CLI]') || line.startsWith('[GET]')) return RealCliRenderer.#title(line);
+            if (line.startsWith('[NOTICE]')) return RealCliRenderer.#notice(line, data);
+            if (line.startsWith('[REPORT]')) return RealCliRenderer.#report(line);
 
             if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
             if (line === '{' || line === '}') return Ansi.gray(line);
@@ -53,13 +53,13 @@ class RealCliRenderer {
 
     static #title(line) {
         return line
-            .replace('[BO3 ZM CLI]', Ansi.yellow('[BO3 ZM CLI]'))
+            .replace(/\[(CLI|GET)\]/, (tag) => Ansi.yellow(tag))
             .replace(/ on map ([^:]+):$/, (_, map) => ` on map ${Ansi.red(map)}:`);
     }
 
     static #report(line) {
         return line.replace(/\[[^\]]+\]/g, (tag) => {
-            if (tag === '[BO3 REPORT]') return Ansi.yellow(tag);
+            if (tag === '[REPORT]') return Ansi.yellow(tag);
             if (tag === '[ERROR]') return Ansi.red(tag);
             if (tag === '[WARN]') return Ansi.yellow(tag);
             return Ansi.green(tag);
@@ -67,13 +67,18 @@ class RealCliRenderer {
     }
 
     static #notice(line, data = null) {
+        const cacheShow = '\u0000CACHE_SHOW\u0000';
         const colored = line
-            .replace('[BO3 NOTICE]', Ansi.yellow('[BO3 NOTICE]'))
+            .replace('[NOTICE]', Ansi.yellow('[NOTICE]'))
+            .replace(/\bcache show\b/gi, cacheShow)
             .replace(/\bpaused\b/gi, (match) => Ansi.red(match))
-            .replace(/\bcache\b/gi, (match) => Ansi.yellow(match))
             .replace(/\bwaiting for live gameplay\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bno live match\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bbusy\b/gi, (match) => Ansi.yellow(match))
             .replace(/\bwaiting for BO3 ACK\b/gi, (match) => Ansi.yellow(match))
             .replace(/\bwaiting for current command\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bcache\b/gi, (match) => Ansi.yellow(match))
+            .replace(cacheShow, RealCliRenderer.#inlineCommand('cache show'))
             .replace(/ on map ([^;.]+)/, (_, map) => ` on map ${Ansi.red(map)}`);
 
         return RealCliRenderer.#inlineItems(colored, RealCliRenderer.#activeRequests(data));
