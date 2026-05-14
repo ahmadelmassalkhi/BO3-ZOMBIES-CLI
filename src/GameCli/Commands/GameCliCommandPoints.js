@@ -7,9 +7,11 @@ class GameCliCommandPoints extends GameCliCommand {
     }
 
     events(bo3, args) {
-        if (args.length !== 1) throw new TypeError('points usage: points <+amount|-amount>.');
+        if (args.length !== 1) throw this.usageError('points usage: points <+amount|-amount>.');
+        if (!/^[+-]\d+$/.test(args[0])) throw this.usageError('points.amount must start with + or -.');
 
-        const amount = this.signedInt(args[0], 'points.amount');
+        const amount = Number.parseInt(args[0], 10);
+        if (!Number.isSafeInteger(amount) || amount === 0) throw this.usageError('points.amount must not be zero.');
         return [new Bo3EventPoints(bo3, Math.abs(amount), amount > 0)];
     }
 }

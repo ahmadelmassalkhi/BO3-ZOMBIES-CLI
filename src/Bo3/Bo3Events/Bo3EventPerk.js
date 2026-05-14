@@ -11,14 +11,6 @@ const TOKENS = Object.freeze({
     ALL: 'all',
 });
 
-const PERKS = Object.freeze({
-    JUGGERNOG: 'juggernog',
-    QUICK_REVIVE: 'quickrevive',
-    SPEED_COLA: 'fastreload',
-    DOUBLE_TAP_2: 'doubletap2',
-    STAMIN_UP: 'staminup',
-});
-
 /**
  * Gives or removes BO3 perks.
  */
@@ -39,19 +31,23 @@ class Bo3EventPerk extends Bo3Event {
 
     static get actions() { return ACTIONS; }
     static get tokens() { return TOKENS; }
-    static get perks() { return PERKS; }
 
     static #action(action) {
         const cleaned = String(action ?? '').trim().toLowerCase();
-        return cleaned === ACTIONS.TAKE || cleaned === 'remove' || cleaned === '-'
-            ? ACTIONS.TAKE
-            : ACTIONS.GIVE;
+        if (cleaned === ACTIONS.GIVE) return ACTIONS.GIVE;
+        if (cleaned === ACTIONS.TAKE) return ACTIONS.TAKE;
+        throw new TypeError('perk.action must be give or take.');
     }
 
     static #perk(action, perkName) {
         const fallback = action === ACTIONS.TAKE ? TOKENS.LAST : TOKENS.RANDOM;
-        const cleaned = Bo3Event.cleanToken(perkName ?? fallback).toLowerCase();
-        return cleaned || fallback;
+        const token = Bo3Event.cleanToken(perkName ?? fallback);
+        if (!token) return fallback;
+        if (/\s/.test(token) || token !== token.toLowerCase()) {
+            throw new TypeError('perk.name must be one lowercase canonical token. Use get perks.');
+        }
+
+        return token;
     }
 }
 

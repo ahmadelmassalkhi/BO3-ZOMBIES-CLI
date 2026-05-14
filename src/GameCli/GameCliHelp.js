@@ -30,7 +30,7 @@ class GameCliHelp {
             '[BO3 ZM CLI] post usage:',
             '  bo3-zm-cli post <command> [args]',
             '  bo3-zm-cli post points +100',
-            '  bo3-zm-cli post weapon ray_gun',
+            '  bo3-zm-cli post weapon give ray_gun',
         ].join('\n');
     }
 }

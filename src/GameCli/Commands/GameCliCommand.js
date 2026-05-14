@@ -6,18 +6,15 @@ class GameCliCommand {
      * @param {string} name Command name.
      * @param {string} usage Command usage.
      * @param {string} description Short command description.
-     * @param {string[]} [aliases=[]] Command aliases.
      */
-    constructor(name, usage, description, aliases = []) {
+    constructor(name, usage, description) {
         if (typeof name !== 'string' || !name.trim()) throw new TypeError('GameCliCommand.name must be a non-empty string.');
         if (typeof usage !== 'string' || !usage.trim()) throw new TypeError('GameCliCommand.usage must be a non-empty string.');
         if (typeof description !== 'string') throw new TypeError('GameCliCommand.description must be a string.');
-        if (!Array.isArray(aliases)) throw new TypeError('GameCliCommand.aliases must be a string array.');
 
         this.name = name;
         this.usage = usage;
         this.description = description;
-        this.aliases = Object.freeze(aliases.map((alias) => String(alias).toLowerCase()));
         Object.freeze(this);
     }
 
@@ -27,7 +24,7 @@ class GameCliCommand {
      */
     matches(name) {
         const normalized = String(name || '').toLowerCase();
-        return normalized === this.name || this.aliases.includes(normalized);
+        return normalized === this.name;
     }
 
     /**
@@ -39,24 +36,17 @@ class GameCliCommand {
         throw new Error(`${this.constructor.name}.events() must be implemented.`);
     }
 
-    positiveInt(value, label) {
-        if (!/^\d+$/.test(String(value ?? ''))) throw new TypeError(`${label} must be a positive integer.`);
-        const parsed = Number.parseInt(value, 10);
-        if (!Number.isSafeInteger(parsed) || parsed < 1) throw new TypeError(`${label} must be a positive integer.`);
-        return parsed;
+    usageError(message) {
+        return new TypeError(`${message} Run: bo3-zm-cli ${this.name} help.`);
     }
 
-    signedInt(value, label) {
-        if (!/^[+-]?\d+$/.test(String(value ?? ''))) throw new TypeError(`${label} must be an integer.`);
-        const parsed = Number.parseInt(value, 10);
-        if (!Number.isSafeInteger(parsed) || parsed === 0) throw new TypeError(`${label} must not be zero.`);
-        return parsed;
-    }
+    canonicalToken(value, label) {
+        const token = String(value ?? '').trim();
+        if (!token || /\s/.test(token) || token !== token.toLowerCase()) {
+            throw this.usageError(`${label} must be one lowercase canonical token.`);
+        }
 
-    tokenText(args, fallback) {
-        if (!Array.isArray(args)) throw new TypeError('GameCliCommand.args must be an array.');
-        const text = args.join('_').trim();
-        return text || fallback;
+        return token;
     }
 }
 

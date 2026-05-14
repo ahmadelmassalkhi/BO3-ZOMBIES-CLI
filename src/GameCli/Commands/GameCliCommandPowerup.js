@@ -7,7 +7,15 @@ class GameCliCommandPowerup extends GameCliCommand {
     }
 
     events(bo3, args) {
-        return [new Bo3EventPowerup(bo3, this.tokenText(args, 'random'))];
+        if (args.length > 1) throw this.usageError('powerup usage: powerup [powerup].');
+        if (GameCliCommandPowerup.#action(args[0])) throw this.usageError('powerup does not take an action.');
+
+        const powerup = args[0] ? this.canonicalToken(args[0], 'powerup.name') : 'random';
+        return [new Bo3EventPowerup(bo3, powerup)];
+    }
+
+    static #action(value) {
+        return ['give', 'add', '+', 'take', 'remove', '-'].includes(String(value || '').toLowerCase());
     }
 }
 

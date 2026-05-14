@@ -1,14 +1,5 @@
 const GameCliCommand = require('./GameCliCommand');
 
-const TARGETS = new Map([
-    ['weapon', 'weapons'],
-    ['weapons', 'weapons'],
-    ['perk', 'perks'],
-    ['perks', 'perks'],
-    ['powerup', 'powerups'],
-    ['powerups', 'powerups'],
-]);
-
 class GameCliCommandGet extends GameCliCommand {
     constructor() {
         super('get', 'get <weapons|perks|powerups> [wonderweapons]', 'Reads live map data.');
@@ -17,8 +8,8 @@ class GameCliCommandGet extends GameCliCommand {
     get(args) {
         if (!Array.isArray(args)) throw new TypeError('get.args must be an array.');
 
-        const target = TARGETS.get(String(args[0] || '').toLowerCase());
-        if (!target) throw new TypeError('get target must be weapons, perks, or powerups.');
+        const target = String(args[0] || '').toLowerCase();
+        if (!['weapons', 'perks', 'powerups'].includes(target)) throw this.usageError('get target must be weapons, perks, or powerups.');
 
         const filter = GameCliCommandGet.#filter(target, args.slice(1));
         return { target, filter };
@@ -30,12 +21,13 @@ class GameCliCommandGet extends GameCliCommand {
 
     static #filter(target, args) {
         if (!args.length) return '';
-        const filter = args.join('_').toLowerCase();
+        if (args.length > 1) throw new TypeError('get usage: get <weapons|perks|powerups> [wonderweapons]. Run: bo3-zm-cli get help.');
 
-        if (target !== 'weapons') throw new TypeError(`get ${target} does not accept a filter.`);
-        if (['wonder', 'wonderweapon', 'wonderweapons'].includes(filter)) return 'wonderweapons';
+        const filter = args[0].toLowerCase();
+        if (target !== 'weapons') throw new TypeError(`get ${target} does not accept a filter. Run: bo3-zm-cli get help.`);
+        if (filter === 'wonderweapons') return 'wonderweapons';
 
-        throw new TypeError('get weapons filter must be wonderweapons.');
+        throw new TypeError('get weapons filter must be wonderweapons. Run: bo3-zm-cli get help.');
     }
 }
 

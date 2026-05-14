@@ -3,17 +3,25 @@ const GameCliCommand = require('./GameCliCommand');
 
 class GameCliCommandPerk extends GameCliCommand {
     constructor() {
-        super('perk', 'perk [give|take] [perk]', 'Gives or takes perks.');
+        super('perk', 'perk [give [perk]|take [perk]]', 'Gives or takes perks.');
     }
 
     events(bo3, args) {
-        const action = GameCliCommandPerk.#action(args[0]) ? args[0] : Bo3EventPerk.actions.GIVE;
-        const perkArgs = GameCliCommandPerk.#action(args[0]) ? args.slice(1) : args;
-        return [new Bo3EventPerk(bo3, action, this.tokenText(perkArgs, action === Bo3EventPerk.actions.TAKE ? 'last' : 'random'))];
+        if (args.length > 2) throw this.usageError('perk usage: perk [give|take] [perk].');
+        const action = args.length ? GameCliCommandPerk.#action(args[0]) : Bo3EventPerk.actions.GIVE;
+        if (!action) throw this.usageError('perk.action must be give or take.');
+
+        const perkArgs = args.length ? args.slice(1) : [];
+        const cleanAction = action;
+        const fallback = cleanAction === Bo3EventPerk.actions.TAKE ? 'last' : 'random';
+        const perk = perkArgs[0] ? this.canonicalToken(perkArgs[0], 'perk.name') : fallback;
+        return [new Bo3EventPerk(bo3, cleanAction, perk)];
     }
 
     static #action(value) {
-        return ['give', 'add', '+', 'take', 'remove', '-'].includes(String(value || '').toLowerCase());
+        const action = String(value || '').toLowerCase();
+        if (action === 'give' || action === 'take') return action;
+        return undefined;
     }
 }
 

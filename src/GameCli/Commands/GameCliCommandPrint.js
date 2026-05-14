@@ -7,7 +7,7 @@ class GameCliCommandPrint extends GameCliCommand {
     }
 
     events(bo3, args) {
-        if (!args.length) throw new TypeError('print.message must be provided.');
+        if (!args.length) throw this.usageError('print.message must be provided.');
         return [new Bo3EventPrint(bo3, args.join(' '))];
     }
 }
