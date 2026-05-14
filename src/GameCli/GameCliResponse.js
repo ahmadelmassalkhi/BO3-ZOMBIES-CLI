@@ -43,7 +43,10 @@ class GameCliResponse {
      * @returns {GameCliResponse} Sent response.
      */
     static sent(recordCount, records, data) {
-        return new GameCliResponse('sent', `sent ${recordCount} BO3 record(s).`, records, data);
+        const reports = data && Array.isArray(data.reports) ? data.reports : [];
+        const lines = [`sent ${recordCount} BO3 record(s).`];
+        reports.forEach((report) => lines.push(GameCliResponse.#reportText(report)));
+        return new GameCliResponse('sent', lines.join('\n'), records, data);
     }
 
     /**
@@ -104,6 +107,13 @@ class GameCliResponse {
             data: this.data,
             error: this.error,
         };
+    }
+
+    static #reportText(report) {
+        const status = report.status && report.status !== 'ok' ? ` [${String(report.status).toUpperCase()}]` : '';
+        const command = report.command ? ` [${String(report.command).toUpperCase()}]` : '';
+        const message = report.message ? String(report.message) : '';
+        return `[BO3 REPORT]${status}${command} ${message}`.trim();
     }
 }
 

@@ -6,6 +6,7 @@ const GameConnectionPacketQueue = require('./PacketControl/GameConnectionPacketQ
 const GameConnectionReliablePacketSender = require('./Transport/Delivery/GameConnectionReliablePacketSender');
 const GameConnectionPacketDeliveryWorker = require('./Transport/Delivery/GameConnectionPacketDeliveryWorker');
 const GameConnectionGetQuery = require('./Query/GameConnectionGetQuery');
+const GameConnectionReportReader = require('./Reports/GameConnectionReportReader');
 
 const STOP_TIMEOUT_MS = 5000;
 
@@ -31,6 +32,7 @@ class GameConnection {
      * @param {object} [options.packetSender] Sender exposing send().
      * @param {object} [options.deliveryWorker] Delivery worker exposing start() and stop().
      * @param {object} [options.getQuery] GET query client exposing get().
+     * @param {object} [options.reportReader] Report reader exposing prime() and collect().
      * @throws {TypeError} When an injected component is missing a required method.
      */
     constructor(options = {}) {
@@ -90,6 +92,12 @@ class GameConnection {
             timeoutMs: options.getTimeoutMs,
             pollMs: options.getPollMs,
         });
+        this.reportReader = options.reportReader || new GameConnectionReportReader({
+            statusProbe: this.statusProbe,
+            firstTimeoutMs: options.reportFirstTimeoutMs,
+            quietMs: options.reportQuietMs,
+            pollMs: options.reportPollMs,
+        });
         this.#validateTransport();
     }
 
@@ -109,7 +117,8 @@ class GameConnection {
      * @returns {Promise<*>} Writer warmup result.
      */
     warmup() {
-        return this.packetWriter.warmup ? this.packetWriter.warmup() : Promise.resolve();
+        const warmup = this.packetWriter.warmup ? this.packetWriter.warmup() : Promise.resolve();
+        return Promise.resolve(warmup).then((result) => this.#primeReports().then(() => result));
     }
 
     /**
@@ -129,6 +138,15 @@ class GameConnection {
      */
     get(target, filter = '') {
         return this.getQuery.get(target, filter);
+    }
+
+    /**
+     * Reads BO3 reports published after the latest seen report id.
+     *
+     * @returns {Promise<object[]>} New BO3 report objects.
+     */
+    reports() {
+        return this.reportReader.collect();
     }
 
     /**
@@ -199,6 +217,21 @@ class GameConnection {
         this.#requireMethod(this.deliveryWorker, 'start', 'packet delivery worker');
         this.#requireMethod(this.deliveryWorker, 'stop', 'packet delivery worker');
         this.#requireMethod(this.getQuery, 'get', 'get query');
+        this.#requireMethod(this.reportReader, 'prime', 'report reader');
+        this.#requireMethod(this.reportReader, 'collect', 'report reader');
+    }
+
+    /**
+     * Best-effort stale report guard; report read failures must not block startup.
+     *
+     * @returns {Promise<void>}
+     */
+    async #primeReports() {
+        try {
+            await this.reportReader.prime();
+        } catch (error) {
+            console.warn('[BO3 REPORT] prime warning:', error && error.message ? error.message : String(error));
+        }
     }
 
     /**

@@ -73,6 +73,7 @@ class Bo3 {
         this.start();
         return Promise.resolve()
             .then(() => this.#gameConnection().schedulePayload(records))
+            .then((delivery) => this.#withReports(delivery))
             .catch((error) => {
                 if (this.#stopping || this.#stopVersion !== stopVersion) {
                     if (error && error.message === STOPPED_BEFORE_ACK) return undefined;
@@ -91,6 +92,21 @@ class Bo3 {
     get(target, filter = '') {
         this.start();
         return this.#ready.then(() => this.#gameConnection().get(target, filter));
+    }
+
+    async #withReports(delivery) {
+        try {
+            return {
+                delivery,
+                reports: await this.#gameConnection().reports(),
+            };
+        } catch (error) {
+            console.warn('[BO3 REPORT] read warning:', error && error.message ? error.message : String(error));
+            return {
+                delivery,
+                reports: [],
+            };
+        }
     }
 
     #gameConnection() {

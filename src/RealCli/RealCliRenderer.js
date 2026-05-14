@@ -25,6 +25,7 @@ class RealCliRenderer {
     #ansi(text) {
         return String(text).split('\n').map((line) => {
             if (line.startsWith('[BO3 ZM CLI]')) return RealCliRenderer.#title(line);
+            if (line.startsWith('[BO3 REPORT]')) return RealCliRenderer.#report(line);
 
             if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
 
@@ -48,6 +49,15 @@ class RealCliRenderer {
         return line
             .replace('[BO3 ZM CLI]', Ansi.yellow('[BO3 ZM CLI]'))
             .replace(/ on map ([^:]+):$/, (_, map) => ` on map ${Ansi.red(map)}:`);
+    }
+
+    static #report(line) {
+        return line.replace(/\[[^\]]+\]/g, (tag) => {
+            if (tag === '[BO3 REPORT]') return Ansi.yellow(tag);
+            if (tag === '[ERROR]') return Ansi.red(tag);
+            if (tag === '[WARN]') return Ansi.yellow(tag);
+            return Ansi.green(tag);
+        });
     }
 
     static #queryItems(line) {
