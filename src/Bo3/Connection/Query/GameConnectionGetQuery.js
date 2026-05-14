@@ -47,14 +47,17 @@ class GameConnectionGetQuery {
         const deadline = Date.now() + this.timeoutMs;
         let expectedTotal = 0;
         let status = '';
+        let map = '';
 
         while (Date.now() < deadline) {
-            const chunk = this.#chunk(await this.statusProbe.read({ activeSession: true }), id);
+            const currentStatus = await this.statusProbe.read({ activeSession: true });
+            const chunk = this.#chunk(currentStatus, id);
             if (chunk) {
+                map = this.#mapName(currentStatus);
                 chunks.set(chunk.part, chunk.payload);
                 expectedTotal = chunk.total;
                 status = chunk.status;
-                if (chunks.size === expectedTotal) return this.#result(target, filter, status, chunks, expectedTotal);
+                if (chunks.size === expectedTotal) return this.#result(target, filter, status, chunks, expectedTotal, map);
             }
 
             await GameConnectionGetQuery.#delay(this.pollMs);
@@ -98,7 +101,7 @@ class GameConnectionGetQuery {
         return '';
     }
 
-    #result(target, filter, status, chunks, total) {
+    #result(target, filter, status, chunks, total, map) {
         const payload = Array.from({ length: total }, (_, index) => chunks.get(index + 1) || '').join('');
         const separator = payload.indexOf(':');
         const label = separator === -1 ? target : payload.slice(0, separator);
@@ -113,9 +116,14 @@ class GameConnectionGetQuery {
         return {
             target: label || target,
             filter,
+            map,
             items,
             raw: payload,
         };
+    }
+
+    #mapName(status) {
+        return String(status && status.info && status.info.server_map ? status.info.server_map : '').trim();
     }
 
     #requestId() {

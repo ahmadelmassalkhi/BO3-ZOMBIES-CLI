@@ -24,7 +24,7 @@ class RealCliRenderer {
 
     #ansi(text) {
         return String(text).split('\n').map((line) => {
-            if (line.startsWith('[BO3 ZM CLI]')) return line.replace('[BO3 ZM CLI]', Ansi.yellow('[BO3 ZM CLI]'));
+            if (line.startsWith('[BO3 ZM CLI]')) return RealCliRenderer.#title(line);
 
             if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
 
@@ -42,6 +42,12 @@ class RealCliRenderer {
 
             return line;
         }).join('\n');
+    }
+
+    static #title(line) {
+        return line
+            .replace('[BO3 ZM CLI]', Ansi.yellow('[BO3 ZM CLI]'))
+            .replace(/ on map ([^:]+):$/, (_, map) => ` on map ${Ansi.red(map)}:`);
     }
 
     static #queryItems(line) {

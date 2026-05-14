@@ -160,7 +160,9 @@ class GameCli {
     }
 
     static #queryText(result) {
-        const title = `[BO3 ZM CLI] ${result.target}${result.filter ? ` ${result.filter}` : ''}:`;
+        const queryName = `${result.target}${result.filter ? ` ${result.filter}` : ''}`;
+        const mapName = result.map ? ` on map ${result.map}` : '';
+        const title = `[BO3 ZM CLI] ${queryName}${mapName}:`;
         const items = result.items.length ? result.items.join(', ') : '<empty>';
         return `${title}\n{ ${items} }`;
     }
