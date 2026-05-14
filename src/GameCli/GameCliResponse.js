@@ -6,14 +6,14 @@
  */
 class GameCliResponse {
     /**
-     * @param {'sent'|'preview'|'help'|'canceled'|'error'} status Response status.
+     * @param {'sent'|'query'|'preview'|'help'|'canceled'|'error'} status Response status.
      * @param {string} text Plain response text.
      * @param {string[][]} records BO3 records sent for this command.
      * @param {*} data Optional machine-readable result.
      * @param {object|null} error Optional machine-readable error.
      */
     constructor(status, text, records = [], data = null, error = null) {
-        if (!['sent', 'preview', 'help', 'canceled', 'error'].includes(status)) throw new TypeError('GameCliResponse.status is invalid.');
+        if (!['sent', 'query', 'preview', 'help', 'canceled', 'error'].includes(status)) throw new TypeError('GameCliResponse.status is invalid.');
         if (typeof text !== 'string') throw new TypeError('GameCliResponse.text must be a string.');
         if (!Array.isArray(records)) throw new TypeError('GameCliResponse.records must be an array.');
 
@@ -44,6 +44,15 @@ class GameCliResponse {
      */
     static sent(recordCount, records, data) {
         return new GameCliResponse('sent', `sent ${recordCount} BO3 record(s).`, records, data);
+    }
+
+    /**
+     * @param {string} text Query response text.
+     * @param {*} data Query data.
+     * @returns {GameCliResponse} Query response.
+     */
+    static query(text, data) {
+        return new GameCliResponse('query', text, [], data);
     }
 
     /**

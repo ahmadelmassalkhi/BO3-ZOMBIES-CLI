@@ -72,6 +72,10 @@ class GameCli {
     async executeAll(texts) {
         const compiled = this.#compiledCommands(texts);
         if (compiled.help) return compiled.help;
+        if (compiled.query) {
+            const result = await this.bo3.get(compiled.query.target, compiled.query.filter);
+            return GameCliResponse.query(GameCli.#queryText(result), result);
+        }
 
         const records = GameCli.#records(compiled.commands);
         const label = compiled.commands.map((command) => command.name).join(', ');
@@ -86,6 +90,7 @@ class GameCli {
     previewAll(texts) {
         const compiled = this.#compiledCommands(texts);
         if (compiled.help) return compiled.help;
+        if (compiled.query) return GameCliResponse.success(GameCli.#queryPreviewText(compiled.query), { status: 'preview', data: compiled.query });
 
         const records = GameCli.#records(compiled.commands);
         return GameCliResponse.preview(records.length, records);
@@ -98,6 +103,8 @@ class GameCli {
         const commands = texts.map((text) => this.#compile(text));
         if (commands.length === 1 && commands[0].help) return { help: commands[0].help };
         if (commands.some((command) => command.help)) throw new TypeError('GameCli cannot batch help with gameplay commands.');
+        if (commands.length === 1 && commands[0].query) return { query: commands[0].query };
+        if (commands.some((command) => command.query)) throw new TypeError('GameCli cannot batch get with other commands.');
         return { commands };
     }
 
@@ -107,24 +114,55 @@ class GameCli {
 
     #compile(text) {
         const tokens = GameCliParser.tokens(text);
+        return this.#compileTokens(tokens);
+    }
+
+    #compileTokens(tokens) {
         const commandName = tokens[0].toLowerCase();
 
         if (commandName === 'help') return { help: this.#help(tokens[1]) };
+        if (commandName === 'post' && tokens.length === 2 && tokens[1].toLowerCase() === 'help') return { help: this.#help('post') };
+        if (commandName === 'post') return this.#compilePost(tokens.slice(1));
         if (tokens[tokens.length - 1].toLowerCase() === 'help') return { help: this.#help(commandName) };
 
         const command = this.registry.get(commandName);
+        if (typeof command.get === 'function') {
+            return {
+                name: command.name,
+                query: command.get(tokens.slice(1)),
+            };
+        }
+
         return {
             name: command.name,
             events: command.events(this.bo3, tokens.slice(1)),
         };
     }
 
+    #compilePost(tokens) {
+        if (!tokens.length) throw new TypeError('post requires a command.');
+        if (tokens[0].toLowerCase() === 'get') throw new TypeError('post cannot run get. Use get directly.');
+        return this.#compileTokens(tokens);
+    }
+
     #help(commandName) {
+        if (String(commandName || '').toLowerCase() === 'post') return GameCliResponse.help(GameCliHelp.post());
+
         const text = commandName
             ? GameCliHelp.command(this.registry.get(commandName))
             : GameCliHelp.general(this.registry);
 
         return GameCliResponse.help(text);
+    }
+
+    static #queryPreviewText(query) {
+        return `previewed BO3 get ${query.target}${query.filter ? ` ${query.filter}` : ''}.`;
+    }
+
+    static #queryText(result) {
+        const title = `[BO3 ZM CLI] ${result.target}${result.filter ? ` ${result.filter}` : ''}:`;
+        if (!result.items.length) return `${title}\n  - <empty>`;
+        return [title, ...result.items.map((item) => `  - ${item}`)].join('\n');
     }
 }
 

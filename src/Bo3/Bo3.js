@@ -83,6 +83,16 @@ class Bo3 {
             });
     }
 
+    /**
+     * @param {string} target GET target.
+     * @param {string} [filter=''] Optional target filter.
+     * @returns {Promise<object>} Live BO3 query result.
+     */
+    get(target, filter = '') {
+        this.start();
+        return this.#ready.then(() => this.#gameConnection().get(target, filter));
+    }
+
     #gameConnection() {
         if (!this.#connection) this.#connection = new GameConnection();
         return this.#connection;

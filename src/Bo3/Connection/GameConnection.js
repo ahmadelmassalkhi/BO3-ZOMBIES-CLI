@@ -5,6 +5,7 @@ const GameConnectionReadinessGate = require('./GameConnectionReadinessGate');
 const GameConnectionPacketQueue = require('./PacketControl/GameConnectionPacketQueue');
 const GameConnectionReliablePacketSender = require('./Transport/Delivery/GameConnectionReliablePacketSender');
 const GameConnectionPacketDeliveryWorker = require('./Transport/Delivery/GameConnectionPacketDeliveryWorker');
+const GameConnectionGetQuery = require('./Query/GameConnectionGetQuery');
 
 const STOP_TIMEOUT_MS = 5000;
 
@@ -29,6 +30,7 @@ class GameConnection {
      * @param {object} [options.readiness] Readiness gate exposing wait() and check().
      * @param {object} [options.packetSender] Sender exposing send().
      * @param {object} [options.deliveryWorker] Delivery worker exposing start() and stop().
+     * @param {object} [options.getQuery] GET query client exposing get().
      * @throws {TypeError} When an injected component is missing a required method.
      */
     constructor(options = {}) {
@@ -82,6 +84,12 @@ class GameConnection {
             idleDelayMs: this.idleDelayMs,
             probeIntervalMs: this.probeIntervalMs,
         });
+        this.getQuery = options.getQuery || new GameConnectionGetQuery({
+            packetWriter: this.packetWriter,
+            statusProbe: this.statusProbe,
+            timeoutMs: options.getTimeoutMs,
+            pollMs: options.getPollMs,
+        });
         this.#validateTransport();
     }
 
@@ -112,6 +120,15 @@ class GameConnection {
      */
     readStatus(options = {}) {
         return this.statusProbe.read(options);
+    }
+
+    /**
+     * @param {string} target GET target.
+     * @param {string} [filter=''] Optional target filter.
+     * @returns {Promise<object>} Live query result.
+     */
+    get(target, filter = '') {
+        return this.getQuery.get(target, filter);
     }
 
     /**
@@ -181,6 +198,7 @@ class GameConnection {
         this.#requireMethod(this.packetSender, 'send', 'packet sender');
         this.#requireMethod(this.deliveryWorker, 'start', 'packet delivery worker');
         this.#requireMethod(this.deliveryWorker, 'stop', 'packet delivery worker');
+        this.#requireMethod(this.getQuery, 'get', 'get query');
     }
 
     /**
