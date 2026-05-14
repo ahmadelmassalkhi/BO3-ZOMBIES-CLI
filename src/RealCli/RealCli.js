@@ -68,7 +68,7 @@ class RealCli {
                 return 0;
             }
 
-            this.#write(renderer, await this.#execute(text, options));
+            this.#write(renderer, this.#oneShotResponse(await this.#execute(text, options)));
             await this.#stop();
             return 0;
         } catch (error) {
@@ -193,6 +193,19 @@ class RealCli {
      */
     #execute(text, options) {
         return options.dryRun ? this.gameCli.preview(text) : this.gameCli.execute(text);
+    }
+
+    /**
+     * Prevents one-shot commands from pretending an in-memory cache will outlive the process.
+     *
+     * @param {GameCliResponse} response Command response.
+     * @returns {GameCliResponse} One-shot-safe response.
+     */
+    #oneShotResponse(response) {
+        if (response.status !== 'queued') return response;
+
+        const reason = response.data && response.data.reason ? response.data.reason : 'waiting';
+        return GameCliResponse.failure(new Error(`Command not sent: ${reason}. Run the interactive CLI to keep cached commands.`));
     }
 
     /**

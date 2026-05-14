@@ -297,11 +297,11 @@ class GameConnection extends EventEmitter {
     }
 
     async #delivered(delivery) {
-        this.#emitReports();
+        const reports = await this.#readReports();
         return {
             queued: false,
             delivery,
-            reports: [],
+            reports,
         };
     }
 
