@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const GameConnection = require('./Connection/GameConnection');
 
 const STOPPED_BEFORE_ACK = 'BO3 connection stopped before queued packets were acknowledged.';
@@ -8,7 +9,7 @@ const STOPPED_BEFORE_ACK = 'BO3 connection stopped before queued packets were ac
  * Owns the BO3 connection and sends already-built BO3 command records. It does
  * not parse CLI text and it does not know TikTok, presets, or any app layer.
  */
-class Bo3 {
+class Bo3 extends EventEmitter {
     #connection;
     #started;
     #stopping;
@@ -16,6 +17,7 @@ class Bo3 {
     #ready;
 
     constructor() {
+        super();
         this.#connection = null;
         this.#started = false;
         this.#stopping = false;
@@ -73,7 +75,6 @@ class Bo3 {
         this.start();
         return Promise.resolve()
             .then(() => this.#gameConnection().schedulePayload(records))
-            .then((delivery) => this.#withReports(delivery))
             .catch((error) => {
                 if (this.#stopping || this.#stopVersion !== stopVersion) {
                     if (error && error.message === STOPPED_BEFORE_ACK) return undefined;
@@ -94,23 +95,34 @@ class Bo3 {
         return this.#ready.then(() => this.#gameConnection().get(target, filter));
     }
 
-    async #withReports(delivery) {
-        try {
-            return {
-                delivery,
-                reports: await this.#gameConnection().reports(),
-            };
-        } catch (error) {
-            console.warn('[BO3 REPORT] read warning:', error && error.message ? error.message : String(error));
-            return {
-                delivery,
-                reports: [],
-            };
-        }
+    /**
+     * Clears cached BO3 packets that are not already in-flight.
+     *
+     * @param {'all'|'last'} [mode='all'] Clear mode.
+     * @param {number} [count=1] Number of last cached requests to clear.
+     * @returns {{ cleared: number, requests: string[], activeRequests: string[], active: boolean }} Clear result.
+     */
+    clearCache(mode = 'all', count = 1) {
+        return this.#connection
+            ? this.#connection.clearCache(mode, count)
+            : { cleared: 0, requests: [], activeRequests: [], active: false };
+    }
+
+    /**
+     * @returns {{ activeRequests: string[], requests: string[], active: boolean }} Current cached BO3 work.
+     */
+    cache() {
+        return this.#connection
+            ? this.#connection.cache()
+            : { activeRequests: [], requests: [], active: false };
     }
 
     #gameConnection() {
-        if (!this.#connection) this.#connection = new GameConnection();
+        if (!this.#connection) {
+            this.#connection = new GameConnection();
+            this.#connection.on('notice', (notice) => this.emit('notice', notice));
+        }
+
         return this.#connection;
     }
 }

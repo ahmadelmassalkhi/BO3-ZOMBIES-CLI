@@ -6,14 +6,14 @@
  */
 class GameCliResponse {
     /**
-     * @param {'sent'|'query'|'preview'|'help'|'canceled'|'error'} status Response status.
+     * @param {'sent'|'queued'|'query'|'preview'|'help'|'notice'|'cleared'|'shown'|'canceled'|'error'} status Response status.
      * @param {string} text Plain response text.
      * @param {string[][]} records BO3 records sent for this command.
      * @param {*} data Optional machine-readable result.
      * @param {object|null} error Optional machine-readable error.
      */
     constructor(status, text, records = [], data = null, error = null) {
-        if (!['sent', 'query', 'preview', 'help', 'canceled', 'error'].includes(status)) throw new TypeError('GameCliResponse.status is invalid.');
+        if (!['sent', 'queued', 'query', 'preview', 'help', 'notice', 'cleared', 'shown', 'canceled', 'error'].includes(status)) throw new TypeError('GameCliResponse.status is invalid.');
         if (typeof text !== 'string') throw new TypeError('GameCliResponse.text must be a string.');
         if (!Array.isArray(records)) throw new TypeError('GameCliResponse.records must be an array.');
 
@@ -44,9 +44,21 @@ class GameCliResponse {
      */
     static sent(recordCount, records, data) {
         const reports = data && Array.isArray(data.reports) ? data.reports : [];
-        const lines = [`sent ${recordCount} BO3 record(s).`];
-        reports.forEach((report) => lines.push(GameCliResponse.#reportText(report)));
-        return new GameCliResponse('sent', lines.join('\n'), records, data);
+        const text = reports.length
+            ? reports.map((report) => GameCliResponse.#reportText(report)).join('\n')
+            : '';
+
+        return new GameCliResponse('sent', text, records, data);
+    }
+
+    /**
+     * @param {number} recordCount Number of queued BO3 records.
+     * @param {string[][]} records Queued BO3 records.
+     * @param {*} data Queue result.
+     * @returns {GameCliResponse} Queued response.
+     */
+    static queued(recordCount, records, data) {
+        return new GameCliResponse('queued', GameCliResponse.#queuedText(data), records, data);
     }
 
     /**
@@ -73,6 +85,30 @@ class GameCliResponse {
      */
     static help(text) {
         return new GameCliResponse('help', text);
+    }
+
+    /**
+     * @param {object} notice User-facing asynchronous notice.
+     * @returns {GameCliResponse} Notice response.
+     */
+    static notice(notice) {
+        return new GameCliResponse('notice', GameCliResponse.#noticeText(notice), [], notice || null);
+    }
+
+    /**
+     * @param {object} result Cache clear result.
+     * @returns {GameCliResponse} Cache clear response.
+     */
+    static cacheCleared(result) {
+        return new GameCliResponse('cleared', GameCliResponse.#cacheClearedText(result), [], result || null);
+    }
+
+    /**
+     * @param {object} result Cache snapshot.
+     * @returns {GameCliResponse} Cache show response.
+     */
+    static cacheShown(result) {
+        return new GameCliResponse('shown', GameCliResponse.#cacheShownText(result), [], result || null);
     }
 
     /**
@@ -114,6 +150,83 @@ class GameCliResponse {
         const command = report.command ? ` [${String(report.command).toUpperCase()}]` : '';
         const message = report.message ? String(report.message) : '';
         return `[BO3 REPORT]${status}${command} ${message}`.trim();
+    }
+
+    static #queuedText(data) {
+        return `[BO3 NOTICE] ${GameCliResponse.#waitText(data)}; cache { ${GameCliResponse.#requestList(data)} }`;
+    }
+
+    static #noticeText(notice) {
+        if (!notice || !notice.type) return '';
+
+        if (notice.type === 'reports') {
+            return Array.isArray(notice.reports)
+                ? notice.reports.map((report) => GameCliResponse.#reportText(report)).join('\n')
+                : '';
+        }
+
+        if (notice.type === 'cachedFlush') {
+            const map = notice.map ? ` on map ${notice.map}` : '';
+            const requests = Array.isArray(notice.requests) ? notice.requests : [];
+            const prefix = notice.gameplayRecovered ? `live gameplay detected${map}` : 'ACK received';
+            return `[BO3 NOTICE] ${prefix}; sending cache { ${requests.join(', ')} }`;
+        }
+
+        if (notice.type === 'commandQueued') {
+            return `[BO3 NOTICE] CLI busy; cache { ${GameCliResponse.#requestList(notice)} }`;
+        }
+
+        if (notice.type === 'cachedError') {
+            return `[BO3 NOTICE] cache failed: ${notice.message || '<unknown>'}`;
+        }
+
+        if (notice.type === 'queryResult') {
+            return GameCliResponse.#queryText(notice.result);
+        }
+
+        return '';
+    }
+
+    static #cacheClearedText(result) {
+        const requests = result && Array.isArray(result.requests) ? result.requests : [];
+        const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
+        if (!requests.length) return activeRequests.length
+            ? `[BO3 NOTICE] cache { ${GameCliResponse.#requestList(result)} }`
+            : '[BO3 NOTICE] cache empty.';
+
+        if (activeRequests.length) return `[BO3 NOTICE] cleared cache { ${requests.join(', ')} }; active { ${activeRequests.join(', ')} }`;
+
+        return `[BO3 NOTICE] cleared cache { ${requests.join(', ')} }`;
+    }
+
+    static #cacheShownText(result) {
+        const requests = result && Array.isArray(result.requests) ? result.requests : [];
+        const activeRequests = result && Array.isArray(result.activeRequests) ? result.activeRequests : [];
+        if (!requests.length && !activeRequests.length) return '[BO3 NOTICE] cache empty.';
+
+        return `[BO3 NOTICE] cache { ${GameCliResponse.#requestList(result)} }`;
+    }
+
+    static #requestList(data) {
+        const activeRequests = data && Array.isArray(data.activeRequests) ? data.activeRequests : [];
+        const requests = data && Array.isArray(data.requests) ? data.requests : [];
+        return activeRequests.concat(requests).join(', ');
+    }
+
+    static #waitText(data) {
+        if (!data) return 'waiting';
+        if (data.reason === 'busy') return data.detail || 'waiting for current command';
+        if (data.reason === 'paused') return data.map ? `paused on map ${data.map}` : 'paused';
+        if (data.reason === 'inactive') return 'waiting for live gameplay';
+        return data.detail || 'waiting';
+    }
+
+    static #queryText(result) {
+        const queryName = `${result.target}${result.filter ? ` ${result.filter}` : ''}`;
+        const mapName = result.map ? ` on map ${result.map}` : '';
+        const title = `[BO3 ZM CLI] ${queryName}${mapName}:`;
+        const items = Array.isArray(result.items) && result.items.length ? result.items.join(', ') : '<empty>';
+        return `${title}\n{ ${items} }`;
     }
 }
 

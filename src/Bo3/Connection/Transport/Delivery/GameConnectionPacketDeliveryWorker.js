@@ -15,6 +15,7 @@ class GameConnectionPacketDeliveryWorker {
      * @param {object} options.readiness Readiness gate exposing wait().
      * @param {object} options.sender Packet sender exposing send().
      * @param {Function} [options.isRunning] Returns true while connection is running.
+     * @param {Function} [options.canSend] Returns true when packets may enter the in-flight slot.
      * @param {number} options.idleDelayMs Delay while queue is empty.
      * @param {number} options.probeIntervalMs Delay after paused/error states.
      */
@@ -23,6 +24,7 @@ class GameConnectionPacketDeliveryWorker {
         this.readiness = options.readiness;
         this.sender = options.sender;
         this.isRunning = options.isRunning || (() => false);
+        this.canSend = options.canSend || (() => true);
         this.idleDelayMs = options.idleDelayMs;
         this.probeIntervalMs = options.probeIntervalMs;
         this.running = false;
@@ -61,7 +63,9 @@ class GameConnectionPacketDeliveryWorker {
             if (!packet) { await sleep(this.idleDelayMs); continue; }
 
             try {
+                if (!this.canSend(packet)) { await sleep(this.idleDelayMs); continue; }
                 if (!(await this.readiness.wait())) { await sleep(this.probeIntervalMs); continue; }
+                if (typeof this.packetQueue.activate === 'function' && !this.packetQueue.activate(packet)) continue;
                 const result = await this.sender.send(packet);
                 if (!this.#active()) break;
                 if (!this.packetQueue.acknowledge(packet, result)) {

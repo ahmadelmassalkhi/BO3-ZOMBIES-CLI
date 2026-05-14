@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const GameConnectionOfficialDvarWriter = require('./Transport/DvarBridge/GameConnectionOfficialDvarWriter');
 const GameConnectionOfficialA2SStatusProbe = require('./Transport/GameConnectionOfficialA2SStatusProbe');
 const GameConnectionPacketProtocol = require('./PacketControl/GameConnectionPacketProtocol');
@@ -9,6 +10,7 @@ const GameConnectionGetQuery = require('./Query/GameConnectionGetQuery');
 const GameConnectionReportReader = require('./Reports/GameConnectionReportReader');
 
 const STOP_TIMEOUT_MS = 5000;
+const ACTIVE_DELIVERY_GRACE_MS = 900;
 
 /**
  * Main BO3 transport orchestrator.
@@ -17,7 +19,7 @@ const STOP_TIMEOUT_MS = 5000;
  * retry timing, warmup, and shutdown coordination. It has no gameplay command
  * knowledge; callers give it command payloads and it delivers packets safely.
  */
-class GameConnection {
+class GameConnection extends EventEmitter {
     /**
      * @param {object} [options] Optional dependency and timing overrides.
      * @param {object} [options.transportOptions] Shared options for default transport components.
@@ -36,6 +38,8 @@ class GameConnection {
      * @throws {TypeError} When an injected component is missing a required method.
      */
     constructor(options = {}) {
+        super();
+
         const transport = options.transportOptions || {};
         const protocol = options.protocolOptions;
         const probeIntervalMs = this.#int(options.probeIntervalMs ?? process.env.BO3_BRIDGE_PROBE_INTERVAL_MS, 1000);
@@ -50,6 +54,11 @@ class GameConnection {
         this.ackPollMs = this.#int(options.ackPollMs ?? process.env.BO3_ACK_POLL_MS, 20);
         this.ackResendMs = this.#int(options.ackResendMs ?? process.env.BO3_ACK_RESEND_MS, 120);
         this.stopTimeoutMs = this.#int(options.stopTimeoutMs ?? process.env.BO3_CONNECTION_STOP_TIMEOUT_MS, STOP_TIMEOUT_MS);
+        this.activeDeliveryGraceMs = this.#int(options.activeDeliveryGraceMs ?? process.env.BO3_ACTIVE_DELIVERY_GRACE_MS, ACTIVE_DELIVERY_GRACE_MS);
+        this.cachedRequests = [];
+        this.cachedFlushAnnounced = false;
+        this.pendingState = null;
+        this.queryActive = false;
 
         this.packetWriter = options.packetWriter || options.commandWriter || new GameConnectionOfficialDvarWriter(transport);
         this.statusProbe = options.statusProbe || new GameConnectionOfficialA2SStatusProbe(transport);
@@ -83,6 +92,7 @@ class GameConnection {
             readiness: this.readiness,
             sender: this.packetSender,
             isRunning: () => this.running,
+            canSend: () => this.#canSendPackets(),
             idleDelayMs: this.idleDelayMs,
             probeIntervalMs: this.probeIntervalMs,
         });
@@ -136,8 +146,22 @@ class GameConnection {
      * @param {string} [filter=''] Optional target filter.
      * @returns {Promise<object>} Live query result.
      */
-    get(target, filter = '') {
-        return this.getQuery.get(target, filter);
+    async get(target, filter = '') {
+        this.#startWorker();
+
+        const request = this.#getRequestText(target, filter);
+        const queueState = (this.queryActive || this.packetQueue.length || this.cachedRequests.length)
+            ? this.#pendingQueueState()
+            : await this.#queueState();
+
+        if (queueState) {
+            this.pendingState = queueState;
+            this.#trackCachedQuery([request], target, filter, queueState);
+            return GameConnection.#queuedResult(queueState, this.cache(), 'query');
+        }
+
+        this.pendingState = null;
+        return this.#runGetQuery(target, filter);
     }
 
     /**
@@ -147,6 +171,54 @@ class GameConnection {
      */
     reports() {
         return this.reportReader.collect();
+    }
+
+    /**
+     * Clears cached work that has not entered the in-flight ACK slot.
+     *
+     * @param {'all'|'last'} [mode='all'] Clear mode.
+     * @param {number} [count=1] Number of last cached requests to clear.
+     * @returns {{ cleared: number, requests: string[], active: boolean }} Clear result.
+     */
+    clearCache(mode = 'all', count = 1) {
+        if (!['all', 'last'].includes(mode)) throw new TypeError('[BO3 CONNECTION] cache clear mode must be all or last.');
+        if (!Number.isInteger(count) || count < 1) throw new TypeError('[BO3 CONNECTION] cache clear count must be a positive integer.');
+
+        const error = new Error('Cached BO3 commands cleared.');
+        error.cacheCleared = true;
+
+        const entries = this.#clearEntries(mode, count);
+        const packets = this.packetQueue.clearCached(error, (packet) => {
+            return entries.some((entry) => entry.packets && entry.packets.includes(packet));
+        });
+        const packetRequests = packets.map((packet) => this.#requestText(packet.payload));
+        const queryRequests = this.#clearCachedQueries(entries);
+        this.#removeClearedEntries(entries);
+        if (!this.cachedRequests.length) this.#resetCacheState();
+        const snapshot = this.cache();
+
+        return {
+            cleared: packetRequests.length + queryRequests.length,
+            requests: packetRequests.concat(queryRequests),
+            active: snapshot.active,
+            activeRequests: snapshot.activeRequests,
+        };
+    }
+
+    /**
+     * @returns {{ activeRequests: string[], requests: string[], active: boolean }} Current cached work.
+     */
+    cache() {
+        const activeEntry = this.#activeCacheEntry();
+        const activeRequests = activeEntry ? activeEntry.requests : [];
+
+        return {
+            requests: this.cachedRequests
+                .filter((entry) => !entry.cleared && entry !== activeEntry && !entry.active)
+                .flatMap((entry) => entry.requests),
+            activeRequests,
+            active: Boolean(activeRequests.length),
+        };
     }
 
     /**
@@ -177,19 +249,270 @@ class GameConnection {
         this.#startWorker();
 
         const packets = this.packetProtocol.createMany(payload);
-        if (packets.length > 1) console.log(`[BO3 CONNECTION] payload split into ${packets.length} safe packet(s).`);
+        const requests = packets.map((packet) => this.#requestText(packet.payload));
+        const queueState = (this.queryActive || this.packetQueue.length || this.cachedRequests.length)
+            ? this.#pendingQueueState()
+            : await this.#queueState();
+        const delivery = this.#enqueuePackets(packets);
 
-        const deliveries = packets.map((packet) => {
-            console.log(`[BO3 CONNECTION] payload enqueued : "${packet.payload}"`);
-            return this.packetQueue.enqueue(packet).then((result) => {
-                console.log(`[BO3 CONNECTION] payload acknowledged : "${packet.payload}"`);
-                return result;
-            });
-        });
+        if (queueState) {
+            this.pendingState = queueState;
+            this.#trackCachedCommands(requests, delivery, queueState, packets);
+            return GameConnection.#queuedResult(queueState, this.cache(), 'command');
+        }
 
+        this.pendingState = null;
+        const quickDelivery = await this.#quickDelivery(delivery);
+        if (quickDelivery.delivered) return this.#delivered(quickDelivery.result);
+
+        const paused = { reason: 'paused', map: quickDelivery.map || '', detail: 'Live match detected, but gameplay is not accepting commands yet.' };
+        this.pendingState = paused;
+        this.#trackCachedCommands(requests, delivery, paused, packets);
+        return GameConnection.#queuedResult(paused, this.cache(), 'command');
+    }
+
+    #enqueuePackets(packets) {
+        const deliveries = packets.map((packet) => this.packetQueue.enqueue(packet));
         return packets.length === 1
             ? deliveries[0]
             : Promise.all(deliveries).then((results) => ({ accepted: true, packets: results }));
+    }
+
+    async #quickDelivery(delivery) {
+        let timer = null;
+        const timeout = new Promise((resolve) => {
+            timer = setTimeout(() => resolve({ delivered: false }), this.activeDeliveryGraceMs);
+        });
+
+        return Promise.race([
+            Promise.resolve(delivery).then((result) => ({ delivered: true, result })),
+            timeout,
+        ]).finally(() => {
+            if (timer) clearTimeout(timer);
+        });
+    }
+
+    async #delivered(delivery) {
+        this.#emitReports();
+        return {
+            queued: false,
+            delivery,
+            reports: [],
+        };
+    }
+
+    async #queueState() {
+        const status = await this.readStatus({ gameplay: true, activeSession: true });
+        const map = GameConnection.#map(status);
+        if (status.state === 'active') return null;
+
+        if (!status.reachable) {
+            return {
+                reason: 'inactive',
+                map,
+                detail: 'No live match detected.',
+            };
+        }
+
+        return {
+            reason: 'paused',
+            map,
+            detail: 'Live match detected, but gameplay appears paused.',
+        };
+    }
+
+    #trackCachedCommands(requests, delivery, state, packets) {
+        const entry = { kind: 'command', requests, packets, reason: state.reason, active: false, cleared: false };
+        this.cachedRequests.push(entry);
+
+        Promise.resolve(delivery)
+            .then((result) => this.#cachedDelivered(entry, result))
+            .catch((error) => this.#cachedFailed(entry, error));
+    }
+
+    #trackCachedQuery(requests, target, filter, state) {
+        const entry = { kind: 'query', requests, packets: [], reason: state.reason, active: false, cleared: false };
+        this.cachedRequests.push(entry);
+        void this.#runCachedQuery(entry, target, filter);
+    }
+
+    async #runCachedQuery(entry, target, filter) {
+        let ownsQuery = false;
+        try {
+            await this.#waitForCachedQuery(entry);
+            if (entry.cleared || !this.running) return;
+
+            entry.active = true;
+            this.queryActive = true;
+            ownsQuery = true;
+            await this.#announceCachedFlush();
+
+            const result = await this.getQuery.get(target, filter);
+            this.#removeCachedRequest(entry);
+            this.emit('notice', { type: 'queryResult', result });
+            if (!this.cachedRequests.length) this.#resetCacheState();
+        } catch (error) {
+            this.#cachedFailed(entry, error);
+        } finally {
+            if (ownsQuery) this.queryActive = false;
+        }
+    }
+
+    async #waitForCachedQuery(entry) {
+        while (this.running && !entry.cleared) {
+            if (this.cachedRequests[0] !== entry) { await GameConnection.#delay(this.idleDelayMs); continue; }
+            if (this.queryActive || this.packetQueue.length) { await GameConnection.#delay(this.idleDelayMs); continue; }
+
+            const state = await this.#queueState();
+            if (!state) return;
+            await GameConnection.#delay(this.probeIntervalMs);
+        }
+    }
+
+    async #cachedDelivered(entry, delivery) {
+        entry.active = true;
+        await this.#announceCachedFlush();
+        const reports = await this.#readReports();
+        this.#removeCachedRequest(entry);
+        if (reports.length) this.emit('notice', { type: 'reports', reports });
+        if (!this.cachedRequests.length) this.#resetCacheState();
+        return delivery;
+    }
+
+    #cachedFailed(entry, error) {
+        this.#removeCachedRequest(entry);
+        if (error && error.cacheCleared) {
+            if (!this.cachedRequests.length) this.#resetCacheState();
+            return;
+        }
+
+        this.emit('notice', {
+            type: 'cachedError',
+            message: error && error.message ? error.message : String(error),
+        });
+        if (!this.cachedRequests.length) this.#resetCacheState();
+    }
+
+    async #announceCachedFlush() {
+        if (this.cachedFlushAnnounced) return;
+        this.cachedFlushAnnounced = true;
+
+        const status = await this.readStatus({ gameplay: true, activeSession: true }).catch(() => null);
+        this.emit('notice', {
+            type: 'cachedFlush',
+            map: GameConnection.#map(status),
+            gameplayRecovered: this.cachedRequests.some((request) => request.reason === 'inactive' || request.reason === 'paused'),
+            requests: this.cachedRequests.flatMap((request) => request.requests),
+        });
+    }
+
+    #resetCacheState() {
+        this.cachedFlushAnnounced = false;
+        this.pendingState = null;
+    }
+
+    #removeCachedRequest(entry) {
+        const index = this.cachedRequests.indexOf(entry);
+        if (index !== -1) this.cachedRequests.splice(index, 1);
+    }
+
+    #requestText(payload) {
+        return String(payload || '').split('|').filter(Boolean).join(' ');
+    }
+
+    #getRequestText(target, filter) {
+        return ['get', target, filter].filter(Boolean).join(' ');
+    }
+
+    #clearCachedQueries(entries) {
+        const cleared = [];
+        for (const entry of entries) {
+            if (entry.kind === 'query') {
+                cleared.push(...entry.requests);
+            }
+        }
+        return cleared;
+    }
+
+    #clearEntries(mode, count) {
+        const activeEntry = this.#activeCacheEntry();
+        const pending = this.cachedRequests.filter((entry) => !entry.cleared && !entry.active && entry !== activeEntry);
+        const entries = mode === 'all' ? pending : pending.slice(-count);
+
+        for (const entry of entries) entry.cleared = true;
+        return entries;
+    }
+
+    #removeClearedEntries(entries) {
+        if (!entries.length) return;
+        this.cachedRequests = this.cachedRequests.filter((entry) => !entries.includes(entry));
+    }
+
+    #activeCacheEntry() {
+        return this.cachedRequests.find((entry, index) => {
+            if (entry.cleared) return false;
+            if (entry.active) return true;
+            return index === 0 && entry.kind === 'command' && this.packetQueue.hasActive;
+        }) || null;
+    }
+
+    async #emitReports() {
+        const reports = await this.#readReports();
+        if (reports.length) this.emit('notice', { type: 'reports', reports });
+    }
+
+    async #readReports() {
+        try {
+            return await this.reports();
+        } catch (error) {
+            console.warn('[BO3 REPORT] read warning:', error && error.message ? error.message : String(error));
+            return [];
+        }
+    }
+
+    static #queuedResult(state, cache, kind) {
+        return {
+            queued: true,
+            kind,
+            reason: state.reason,
+            map: state.map,
+            detail: state.detail,
+            activeRequests: cache.activeRequests,
+            requests: cache.requests,
+            reports: [],
+        };
+    }
+
+    static #busyState(detail = 'waiting for current command') {
+        return {
+            reason: 'busy',
+            map: '',
+            detail,
+        };
+    }
+
+    #pendingQueueState() {
+        if (this.queryActive) return GameConnection.#busyState('waiting for current command');
+        if (this.packetQueue.hasActive) return GameConnection.#busyState('waiting for BO3 ACK');
+        return this.pendingState || GameConnection.#busyState();
+    }
+
+    #canSendPackets() {
+        if (this.queryActive) return false;
+        return !this.cachedRequests.length || this.cachedRequests[0].kind === 'command';
+    }
+
+    async #runGetQuery(target, filter) {
+        this.queryActive = true;
+        try {
+            return await this.getQuery.get(target, filter);
+        } finally {
+            this.queryActive = false;
+        }
+    }
+
+    static #map(status) {
+        return String(status && status.info && status.info.server_map ? status.info.server_map : '').trim();
     }
 
     /**
@@ -290,6 +613,10 @@ class GameConnection {
     #int(value, fallback) {
         const parsed = Number.parseInt(value, 10);
         return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+    }
+
+    static #delay(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 }
 

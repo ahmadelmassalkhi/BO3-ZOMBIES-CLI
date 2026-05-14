@@ -19,26 +19,30 @@ class RealCliRenderer {
         if (!(response instanceof GameCliResponse)) throw new TypeError('RealCliRenderer.response must be a GameCliResponse.');
         if (this.output === 'json') return JSON.stringify(response.toJSON());
         if (this.output === 'text') return response.text;
-        return response.ok ? this.#ansi(response.text) : Ansi.red(response.text);
+        return response.ok ? this.#ansi(response.text, response.data) : Ansi.red(response.text);
     }
 
-    #ansi(text) {
+    #ansi(text, data = null) {
         return String(text).split('\n').map((line) => {
             if (line.startsWith('[BO3 ZM CLI]')) return RealCliRenderer.#title(line);
+            if (line.startsWith('[BO3 NOTICE]')) return RealCliRenderer.#notice(line, data);
             if (line.startsWith('[BO3 REPORT]')) return RealCliRenderer.#report(line);
 
             if (line.startsWith('{ ') && line.endsWith(' }')) return RealCliRenderer.#queryItems(line);
+            if (line.match(/^  - /)) return RealCliRenderer.#note(line);
+
+            const helpCommand = line.match(/^  ([a-z]+)(?: ([a-z]+))?$/);
+            if (helpCommand) {
+                const command = Ansi.blue(helpCommand[1]);
+                const subcommand = helpCommand[2] ? ` ${Ansi.green(helpCommand[2])}` : '';
+                return `  ${command}${subcommand}`;
+            }
 
             const commandLine = line.match(/^  ([a-z]+)\s{2,}(.*)$/);
             if (commandLine) return `  ${Ansi.blue(commandLine[1].padEnd(8))} ${commandLine[2]}`;
 
             if (line.trim().startsWith('bo3-zm-cli')) {
-                return line
-                    .replace('bo3-zm-cli', Ansi.cyan('bo3-zm-cli'))
-                    .replace(/--json|--plain|--ansi|--dry-run/g, (match) => Ansi.yellow(match))
-                    .replace(/<command>/g, Ansi.blue('<command>'))
-                    .replace(/\[args\]/g, Ansi.gray('[args]'))
-                    .replace(/\bhelp\b/g, Ansi.green('help'));
+                return RealCliRenderer.#commandUsage(line);
             }
 
             return line;
@@ -60,13 +64,108 @@ class RealCliRenderer {
         });
     }
 
+    static #notice(line, data = null) {
+        const colored = line
+            .replace('[BO3 NOTICE]', Ansi.yellow('[BO3 NOTICE]'))
+            .replace(/\bpaused\b/gi, (match) => Ansi.red(match))
+            .replace(/\bcache\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bwaiting for live gameplay\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bwaiting for BO3 ACK\b/gi, (match) => Ansi.yellow(match))
+            .replace(/\bwaiting for current command\b/gi, (match) => Ansi.yellow(match))
+            .replace(/ on map ([^;.]+)/, (_, map) => ` on map ${Ansi.red(map)}`);
+
+        return RealCliRenderer.#inlineItems(colored, RealCliRenderer.#activeRequests(data));
+    }
+
     static #queryItems(line) {
         const items = line.slice(2, -2).split(', ');
+        return RealCliRenderer.#items(items);
+    }
+
+    static #inlineItems(line, activeRequests = []) {
+        return line.replace(/\{ ([^}]*) \}/g, (_, content) => RealCliRenderer.#items(content ? content.split(', ') : [], activeRequests));
+    }
+
+    static #items(items, activeRequests = []) {
         return [
             Ansi.gray('{ '),
-            items.map((item) => Ansi.green(item)).join(Ansi.gray(', ')),
+            items.map((item) => activeRequests.includes(item) ? Ansi.red(item) : Ansi.green(item)).join(Ansi.gray(', ')),
             Ansi.gray(' }'),
         ].join('');
+    }
+
+    static #commandUsage(line) {
+        const indent = line.match(/^\s*/)[0];
+        let commandColored = false;
+        const tokens = line.trim().split(/\s+/).map((token) => {
+            if (token === 'bo3-zm-cli') return Ansi.cyan(token);
+            if (token.startsWith('--')) return Ansi.yellow(token);
+            if (token.startsWith('<') && token.endsWith('>')) {
+                if (!commandColored) commandColored = true;
+                return Ansi.blue(token);
+            }
+            if (token.startsWith('[') && token.endsWith(']')) return Ansi.gray(token);
+            if (/^[a-z]+$/.test(token) && !commandColored) {
+                commandColored = true;
+                return Ansi.blue(token);
+            }
+            if (/^[a-z]+$/.test(token)) return Ansi.green(token);
+            return token;
+        });
+
+        return `${indent}${tokens.join(' ')}`;
+    }
+
+    static #note(line) {
+        const prefix = line.match(/^\s*-\s*/)[0];
+        const content = line.slice(prefix.length);
+        const commands = ['cache clear last', 'cache clear all', 'cache clear', 'cache show', 'cache'];
+        let index = 0;
+        let output = Ansi.gray(prefix);
+        let gray = '';
+
+        const flush = () => {
+            if (!gray) return;
+            output += Ansi.gray(gray);
+            gray = '';
+        };
+
+        while (index < content.length) {
+            const command = commands.find((item) => {
+                return content.slice(index).startsWith(item)
+                    && RealCliRenderer.#hasWordBoundary(content, index, item.length);
+            });
+
+            if (command) {
+                flush();
+                output += RealCliRenderer.#inlineCommand(command);
+                index += command.length;
+            } else {
+                gray += content[index];
+                index += 1;
+            }
+        }
+
+        flush();
+        return output;
+    }
+
+    static #inlineCommand(command) {
+        const [name, ...args] = command.split(' ');
+        return [
+            Ansi.blue(name),
+            ...args.map((arg) => Ansi.green(arg)),
+        ].join(' ');
+    }
+
+    static #hasWordBoundary(text, index, length) {
+        const before = index > 0 ? text[index - 1] : '';
+        const after = text[index + length] || '';
+        return !/[A-Za-z0-9_]/.test(before) && !/[A-Za-z0-9_]/.test(after);
+    }
+
+    static #activeRequests(data) {
+        return data && Array.isArray(data.activeRequests) ? data.activeRequests : [];
     }
 }
 

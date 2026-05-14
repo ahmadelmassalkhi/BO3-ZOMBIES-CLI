@@ -17,6 +17,13 @@ class GameConnectionPacketQueue {
     }
 
     /**
+     * @returns {boolean} True when the front packet is already being delivered.
+     */
+    get hasActive() {
+        return Boolean(this.queue[0] && this.queue[0].active);
+    }
+
+    /**
      * Adds one packet and exposes its eventual ACK/reject promise.
      *
      * @param {import('./GameConnectionPacket')} packet Packet to enqueue.
@@ -24,7 +31,7 @@ class GameConnectionPacketQueue {
      */
     enqueue(packet) {
         return new Promise((resolve, reject) => {
-            this.queue.push({ packet, resolve, reject });
+            this.queue.push({ packet, resolve, reject, active: false });
         });
     }
 
@@ -36,6 +43,20 @@ class GameConnectionPacketQueue {
     peek() {
         const entry = this.queue[0];
         return entry ? entry.packet : null;
+    }
+
+    /**
+     * Marks the active packet as in-flight.
+     *
+     * @param {import('./GameConnectionPacket')} packet Packet now being delivered.
+     * @returns {boolean} True when the packet is still queued and now active.
+     */
+    activate(packet) {
+        const entry = this.queue[0];
+        if (!entry || entry.packet !== packet) return false;
+
+        entry.active = true;
+        return true;
     }
 
     /**
@@ -61,6 +82,29 @@ class GameConnectionPacketQueue {
      */
     rejectAll(error = new Error('Packet queue stopped before queued packets were delivered.')) {
         while (this.queue.length) this.queue.shift().reject(error);
+    }
+
+    /**
+     * Rejects cached packets while preserving the active in-flight packet.
+     *
+     * @param {Error} [error] Rejection reason for cleared packets.
+     * @returns {import('./GameConnectionPacket')[]} Cleared packets.
+     */
+    clearCached(error = new Error('Cached BO3 commands cleared.'), shouldClear = () => true) {
+        const kept = [];
+        const cleared = [];
+
+        for (const entry of this.queue) {
+            if (entry.active || !shouldClear(entry.packet)) {
+                kept.push(entry);
+            } else {
+                cleared.push(entry.packet);
+                entry.reject(error);
+            }
+        }
+
+        this.queue = kept;
+        return cleared;
     }
 }
 

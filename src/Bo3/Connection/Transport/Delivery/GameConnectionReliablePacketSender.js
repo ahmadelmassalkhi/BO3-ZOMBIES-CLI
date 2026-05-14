@@ -48,7 +48,6 @@ class GameConnectionReliablePacketSender {
      */
     async send(packet) {
         this.#validatePacket(packet);
-        console.log(`[BO3 CONNECTION] payload transmitting : "${packet.payload}"`);
 
         let firstSendAt = 0;
         let lastSendAt = 0;
@@ -75,7 +74,7 @@ class GameConnectionReliablePacketSender {
             }
 
             if (packet.acknowledgedBy(await this.#ack())) return packet.accepted();
-            lastAckLogAt = this.#logAckWait(packet.id, firstSendAt, lastAckLogAt);
+            lastAckLogAt = this.#ackWait(packet.id, firstSendAt, lastAckLogAt);
             await sleep(this.ackPollMs);
         }
 
@@ -132,11 +131,10 @@ class GameConnectionReliablePacketSender {
      * @param {number} lastLogAt Previous log timestamp.
      * @returns {number} Updated last log timestamp.
      */
-    #logAckWait(packetId, firstSendAt, lastLogAt) {
+    #ackWait(packetId, firstSendAt, lastLogAt) {
         const now = Date.now();
         const waitMs = now - firstSendAt;
         if (waitMs < 5000 || now - lastLogAt < 5000) return lastLogAt;
-        console.log(`[BO3 CONNECTION] waiting for ACK ${packetId}; retrying current packet (${waitMs}ms).`);
         return now;
     }
 

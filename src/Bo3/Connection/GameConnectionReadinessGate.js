@@ -13,7 +13,7 @@ class GameConnectionReadinessGate {
      * @param {object} [options] Readiness dependencies and timing.
      * @param {object} options.probe Status probe exposing read().
      * @param {Function} [options.isRunning] Returns true while connection is running.
-     * @param {Function} [options.getQueueLength] Returns queued packet count for logs.
+     * @param {Function} [options.getQueueLength] Returns queued packet count.
      * @param {number} [options.probeIntervalMs] Delay between inactive probes.
      * @param {number} [options.recoverySettleMs] Delay after gameplay recovers.
      * @param {number} [options.readyConfirmationsRequired] Consecutive active probes required.
@@ -89,18 +89,14 @@ class GameConnectionReadinessGate {
     }
 
     /**
-     * Pauses packet attempts and logs the transition once.
+     * Pauses packet attempts until gameplay is confirmed again.
      *
      * @returns {{ state: 'paused', needsSettle: true }} Paused readiness state.
      */
     #interrupt() {
         this.active = false;
         this.settleUntil = Date.now() + this.settleMs;
-
-        if (!this.interrupted) {
-            console.log(`[BO3 CONNECTION] BO3 interrupted; holding ${this.getQueueLength()} queued packet(s) until gameplay is active again.`);
-            this.interrupted = true;
-        }
+        this.interrupted = true;
 
         return { state: 'paused', needsSettle: true };
     }
@@ -113,10 +109,6 @@ class GameConnectionReadinessGate {
     #recover() {
         const needsSettle = !this.active || this.interrupted;
         this.active = true;
-
-        if (this.interrupted && this.getQueueLength()) {
-            console.log(`[BO3 CONNECTION] BO3 recovered; flushing ${this.getQueueLength()} queued packet(s).`);
-        }
 
         this.interrupted = false;
         if (needsSettle) this.settleUntil = Date.now() + this.settleMs;
